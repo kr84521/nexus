@@ -37,7 +37,11 @@ pub fn scan_all(db: &Db) -> AppResult<ScanReport> {
         .get_setting("scanFolders")?
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
-    let handles: Vec<_> = scanners::all(folders)
+    let emulators = db
+        .get_setting("emulators")?
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let handles: Vec<_> = scanners::all(folders, emulators)
         .into_iter()
         .map(|s| std::thread::spawn(move || (s.store(), s.scan())))
         .collect();

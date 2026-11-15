@@ -1,6 +1,6 @@
 // Espejo de src-tauri/src/models.rs. Mantener sincronizado.
 
-export type Store = "steam" | "epic" | "gog" | "ea" | "ubisoft" | "battlenet" | "xbox" | "manual";
+export type Store = "steam" | "epic" | "gog" | "ea" | "ubisoft" | "battlenet" | "xbox" | "rom" | "manual";
 
 export type LaunchTarget =
   | { kind: "uri"; uri: string }
@@ -73,6 +73,20 @@ export interface StatsReport {
   topAllTime: { gameId: string; title: string; secs: number; sessions: number }[];
   topMonth: { gameId: string; title: string; secs: number; sessions: number }[];
   recent: { gameId: string; title: string; startedAt: number; secs: number }[];
+}
+
+export interface SaveBackup {
+  name: string;
+  createdAt: number;
+  files: number;
+  bytes: number;
+  path: string;
+}
+
+export interface SaveInfo {
+  paths: string[];
+  backups: SaveBackup[];
+  destination: string;
 }
 
 export interface Collection {

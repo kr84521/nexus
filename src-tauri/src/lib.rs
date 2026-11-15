@@ -8,6 +8,7 @@ mod library;
 mod metadata;
 mod models;
 mod playtime;
+mod saves;
 mod scanners;
 mod state;
 mod stats;
@@ -115,6 +116,10 @@ pub fn run() {
             commands::files::read_text_file,
             commands::files::export_library,
             commands::files::import_library,
+            commands::saves::saves_info,
+            commands::saves::backup_saves,
+            commands::saves::restore_saves,
+            commands::saves::open_path,
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Nexus");

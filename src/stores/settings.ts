@@ -4,12 +4,25 @@ import { applyHotkey, DEFAULT_SHORTCUT } from "@/lib/hotkey";
 import { applyTheme, DEFAULT_THEME, normalizeTheme, type Theme } from "@/lib/theme";
 import { toast } from "./toast";
 
+export interface EmulatorConfig {
+  id: string;
+  name: string;
+  exePath: string;
+  args: string;
+  romsDir: string;
+  extensions: string[];
+  platform: string;
+}
+
 interface SettingsState {
   theme: Theme;
   sgdbApiKey: string;
   closeToTray: boolean;
   scanFolders: string[];
   quickSearch: { enabled: boolean; shortcut: string };
+  emulators: EmulatorConfig[];
+  savesDir: string;
+  autoBackupSaves: boolean;
   loaded: boolean;
   load: () => Promise<void>;
   updateTheme: (patch: Partial<Theme>) => void;
@@ -18,6 +31,9 @@ interface SettingsState {
   setCloseToTray: (v: boolean) => void;
   setScanFolders: (folders: string[]) => Promise<void>;
   setQuickSearch: (q: { enabled: boolean; shortcut: string }) => Promise<void>;
+  setEmulators: (list: EmulatorConfig[]) => Promise<void>;
+  setSavesDir: (dir: string) => Promise<void>;
+  setAutoBackupSaves: (v: boolean) => Promise<void>;
 }
 
 function normalizeQuickSearch(raw: unknown): { enabled: boolean; shortcut: string } {
@@ -40,6 +56,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
   closeToTray: true,
   scanFolders: [],
   quickSearch: { enabled: true, shortcut: DEFAULT_SHORTCUT },
+  emulators: [],
+  savesDir: "",
+  autoBackupSaves: false,
   loaded: false,
 
   load: async () => {
@@ -53,6 +72,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
         closeToTray: s.closeToTray !== false,
         scanFolders: Array.isArray(s.scanFolders) ? (s.scanFolders as string[]) : [],
         quickSearch: normalizeQuickSearch(s.quickSearch),
+        emulators: Array.isArray(s.emulators) ? (s.emulators as EmulatorConfig[]) : [],
+        savesDir: typeof s.savesDir === "string" ? s.savesDir : "",
+        autoBackupSaves: s.autoBackupSaves === true,
         loaded: true,
       });
       const q = normalizeQuickSearch(s.quickSearch);
@@ -81,6 +103,19 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setCloseToTray: (v) => {
     set({ closeToTray: v });
     api.setSetting("closeToTray", v).catch((e) => toast.error(errorText(e)));
+  },
+
+  setEmulators: async (emulators) => {
+    set({ emulators });
+    await api.setSetting("emulators", emulators).catch((e) => toast.error(errorText(e)));
+  },
+  setSavesDir: async (savesDir) => {
+    set({ savesDir });
+    await api.setSetting("savesDir", savesDir).catch((e) => toast.error(errorText(e)));
+  },
+  setAutoBackupSaves: async (autoBackupSaves) => {
+    set({ autoBackupSaves });
+    await api.setSetting("autoBackupSaves", autoBackupSaves).catch((e) => toast.error(errorText(e)));
   },
 
   setQuickSearch: async (quickSearch) => {

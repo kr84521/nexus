@@ -65,6 +65,9 @@ export function App() {
       listen("artwork-done", () => setFetchingArt(false)),
       listen<{ gameId: string; running: boolean }>("game-running", (e) => setRunning(e.payload.gameId, e.payload.running)),
       listen("scan-requested", () => scan()),
+      listen<{ gameId: string; files: number }>("saves-backed-up", (e) => {
+        toast.success(`Copia de partidas guardada (${e.payload.files} archivos)`);
+      }),
       listen<{ gameId: string; secs: number }>("session-ended", (e) => {
         const g = useLibrary.getState().games.find((x) => x.id === e.payload.gameId);
         toast.info(`${g ? displayTitle(g) : "Sesión"}: has jugado ${formatPlaytime(e.payload.secs)}`);

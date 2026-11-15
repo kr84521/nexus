@@ -126,7 +126,7 @@ pub fn shutdown_store(store: Store) {
         Store::Ea => kill(&["EADesktop.exe", "EABackgroundService.exe", "Origin.exe"]),
         Store::Ubisoft => kill(&["upc.exe", "UbisoftConnect.exe", "UplayWebCore.exe"]),
         Store::Battlenet => kill(&["Battle.net.exe"]),
-        Store::Xbox | Store::Manual => {}
+        Store::Xbox | Store::Rom | Store::Manual => {}
     }
 }
 

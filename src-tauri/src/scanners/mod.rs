@@ -8,6 +8,7 @@ mod ea;
 mod epic;
 pub mod folders;
 mod gog;
+pub mod roms;
 mod steam;
 mod ubisoft;
 pub mod util;
@@ -24,9 +25,11 @@ pub trait StoreScanner: Send + Sync {
 }
 
 /// `folders`: carpetas elegidas por el usuario que se escanean en busca de ejecutables.
-pub fn all(folders: Vec<String>) -> Vec<Box<dyn StoreScanner>> {
+/// `emulators`: emuladores configurados (ajuste `emulators`), cuyas ROMs aparecen como juegos.
+pub fn all(folders: Vec<String>, emulators: Vec<roms::EmulatorConfig>) -> Vec<Box<dyn StoreScanner>> {
     vec![
         Box::new(folders::Folders { roots: folders }),
+        Box::new(roms::Roms { emulators }),
         Box::new(steam::Steam),
         Box::new(epic::Epic),
         Box::new(gog::Gog),

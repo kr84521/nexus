@@ -13,6 +13,8 @@ pub enum Store {
     Ubisoft,
     Battlenet,
     Xbox,
+    /// ROM lanzada con un emulador configurado por el usuario.
+    Rom,
     Manual,
 }
 
@@ -26,6 +28,7 @@ impl Store {
             Store::Ubisoft => "ubisoft",
             Store::Battlenet => "battlenet",
             Store::Xbox => "xbox",
+            Store::Rom => "rom",
             Store::Manual => "manual",
         }
     }
@@ -39,6 +42,7 @@ impl Store {
             "ubisoft" => Store::Ubisoft,
             "battlenet" => Store::Battlenet,
             "xbox" => Store::Xbox,
+            "rom" => Store::Rom,
             "manual" => Store::Manual,
             _ => return None,
         })

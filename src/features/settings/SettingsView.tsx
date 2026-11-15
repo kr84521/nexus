@@ -11,6 +11,8 @@ import { toast } from "@/stores/toast";
 import { FoldersSection } from "./FoldersSection";
 import { UpdateSection } from "./UpdateSection";
 import { BackgroundRow, BackupSection, ThemeFileRow } from "./BackupSection";
+import { EmulatorsSection } from "./EmulatorsSection";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 export function SettingsView() {
   const { theme, updateTheme, resetTheme, sgdbApiKey, setApiKey } = useSettings();
@@ -23,6 +25,10 @@ export function SettingsView() {
   const quickSearch = useSettings((s) => s.quickSearch);
   const setQuickSearch = useSettings((s) => s.setQuickSearch);
   const [shortcutDraft, setShortcutDraft] = useState(quickSearch.shortcut);
+  const savesDir = useSettings((s) => s.savesDir);
+  const setSavesDir = useSettings((s) => s.setSavesDir);
+  const autoBackupSaves = useSettings((s) => s.autoBackupSaves);
+  const setAutoBackupSaves = useSettings((s) => s.setAutoBackupSaves);
 
   useEffect(() => {
     isEnabled().then(setAutostart).catch(() => setAutostart(false));
@@ -148,6 +154,31 @@ export function SettingsView() {
         </Section>
 
         <FoldersSection />
+
+        <EmulatorsSection />
+
+        <Section title="Partidas guardadas">
+          <Row label="Copia automática al salir" hint="Al terminar cada sesión se guarda una copia de las partidas (se conservan 5 por juego)">
+            <Toggle checked={autoBackupSaves} onChange={setAutoBackupSaves} />
+          </Row>
+          <Row label="Carpeta de las copias" hint={savesDir || "Por defecto, dentro de los datos de Nexus. Elige una carpeta de OneDrive o Drive para tenerlas en la nube"}>
+            {savesDir && (
+              <Button size="sm" onClick={() => setSavesDir("")}>
+                Por defecto
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const d = await openDialog({ directory: true, multiple: false, title: "Carpeta para las copias de partidas" });
+                if (typeof d === "string") setSavesDir(d);
+              }}
+            >
+              Elegir carpeta
+            </Button>
+          </Row>
+        </Section>
 
         <BackupSection />
 

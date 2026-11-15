@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   Pencil,
   Play,
+  Save,
   SlidersHorizontal,
   Star,
   Timer,
@@ -26,6 +27,7 @@ import { contrastText } from "@/lib/theme";
 import { toast } from "@/stores/toast";
 import type { Game } from "@/types";
 import { FallbackCover } from "@/features/library/GameCard";
+import { SavesPanel } from "./SavesPanel";
 import { SourcesPanel } from "./SourcesPanel";
 import { TrailerVideo } from "./TrailerVideo";
 
@@ -47,6 +49,7 @@ export function GameDetail({ game }: { game: Game }) {
   const gameAccent = useSettings((s) => s.theme.gameAccent);
   const trailers = useSettings((s) => s.theme.trailers);
   const [showFull, setShowFull] = useState(false);
+  const [savesOpen, setSavesOpen] = useState(false);
   const accentStyle: CSSProperties | undefined =
     gameAccent && game.artColor
       ? ({ "--accent": game.artColor, "--accent-fg": contrastText(game.artColor) } as CSSProperties)
@@ -66,11 +69,11 @@ export function GameDetail({ game }: { game: Game }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !artOpen && !editing) select(null);
+      if (e.key === "Escape" && !artOpen && !editing && !savesOpen) select(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [select, artOpen, editing]);
+  }, [select, artOpen, editing, savesOpen]);
 
   const saveTitle = async () => {
     setEditing(false);
@@ -275,6 +278,9 @@ export function GameDetail({ game }: { game: Game }) {
             <IconButton title="Cambiar arte" className="size-12 bg-bg/40 backdrop-blur" onClick={() => openArt(game.id)}>
               <ImageIcon size={18} />
             </IconButton>
+            <IconButton title="Partidas guardadas" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setSavesOpen(true)}>
+              <Save size={18} />
+            </IconButton>
             <IconButton
               title="Opciones de lanzamiento"
               className="size-12 bg-bg/40 backdrop-blur"
@@ -312,6 +318,7 @@ export function GameDetail({ game }: { game: Game }) {
           </div>
         </div>
       </div>
+      <SavesPanel game={game} open={savesOpen} onClose={() => setSavesOpen(false)} />
     </motion.div>
   );
 }

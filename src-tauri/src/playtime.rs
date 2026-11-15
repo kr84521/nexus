@@ -127,6 +127,22 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
     if let Some(store) = on_exit.close_store {
         launcher::shutdown_store(store);
     }
+
+    let auto_backup = state
+        .db
+        .get_setting("autoBackupSaves")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if auto_backup {
+        match state.db.get_game(&game_id).and_then(|g| crate::saves::backup(&state, &g)) {
+            Ok(b) => {
+                let _ = app.emit("saves-backed-up", serde_json::json!({ "gameId": game_id, "files": b.files }));
+            }
+            Err(e) => eprintln!("[saves] {game_id}: {e}"),
+        }
+    }
 }
 
 fn started_ms(at: Instant) -> i64 {
