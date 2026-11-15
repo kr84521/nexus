@@ -1,12 +1,14 @@
 // Wrappers tipados de los comandos de Tauri. El nombre de cada función = nombre del comando en Rust.
 // Tauri convierte los argumentos camelCase de JS a snake_case en Rust automáticamente.
 import { invoke } from "@tauri-apps/api/core";
-import type { ArtKind, ArtOption, Collection, Game, ScanReport, SgdbGame } from "@/types";
+import type { ArtKind, ArtOption, Collection, Game, LaunchOptions, ScanReport, SgdbGame, StatsReport } from "@/types";
 
 export const api = {
   getLibrary: () => invoke<{ games: Game[]; collections: Collection[] }>("get_library"),
   scanLibrary: () => invoke<ScanReport>("scan_library"),
   launchGame: (id: string, sourceId?: string) => invoke<Game>("launch_game", { id, sourceId }),
+  setLaunchOptions: (id: string, options: LaunchOptions) => invoke<Game>("set_launch_options", { id, options }),
+  getStats: () => invoke<StatsReport>("get_stats"),
   setFavorite: (id: string, value: boolean) => invoke<Game>("set_favorite", { id, value }),
   setHidden: (id: string, value: boolean) => invoke<Game>("set_hidden", { id, value }),
   setCustomTitle: (id: string, title: string | null) => invoke<Game>("set_custom_title", { id, title }),

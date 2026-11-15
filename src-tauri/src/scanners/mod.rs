@@ -14,6 +14,8 @@ pub mod util;
 mod vdf;
 mod xbox;
 
+pub use steam::steam_root;
+
 pub trait StoreScanner: Send + Sync {
     fn store(&self) -> Store;
     /// Devuelve los juegos instalados. Si la tienda no está instalada devuelve `Ok(vec![])`;

@@ -67,6 +67,11 @@ impl Db {
         self.conn.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// Acceso de solo lectura para consultas agregadas (módulo `stats`). No mantener a través de `.await`.
+    pub fn conn_for_stats(&self) -> MutexGuard<'_, Connection> {
+        self.conn()
+    }
+
     // ---------------------------------------------------------------- lectura
 
     pub fn load_games(&self) -> AppResult<Vec<Game>> {
@@ -143,6 +148,29 @@ impl Db {
             }
         }
 
+        let mut opts: HashMap<String, LaunchOptions> = HashMap::new();
+        {
+            let mut st = conn.prepare(
+                "SELECT game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin FROM launch_options",
+            )?;
+            let rows = st.query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    LaunchOptions {
+                        args: r.get(1)?,
+                        pre_command: r.get(2)?,
+                        post_command: r.get(3)?,
+                        close_store_on_exit: r.get::<_, i64>(4)? != 0,
+                        run_as_admin: r.get::<_, i64>(5)? != 0,
+                    },
+                ))
+            })?;
+            for row in rows {
+                let (id, o) = row?;
+                opts.insert(id, o);
+            }
+        }
+
         let mut st = conn.prepare(
             "SELECT id, title, custom_title, favorite, hidden, last_played, play_count, added_at,
                     preferred_source, sgdb_id, art_cover, art_hero, art_logo, art_icon, art_version,
@@ -171,6 +199,7 @@ impl Db {
                 playtime_secs: r.get(15)?,
                 art_color: r.get::<_, Option<String>>(16)?.filter(|c| !c.is_empty()),
                 meta: None,
+                launch_options: LaunchOptions::default(),
                 sources: vec![],
                 collections: vec![],
             })
@@ -182,6 +211,7 @@ impl Db {
             g.sources = sources.remove(&g.id).unwrap_or_default();
             g.collections = colls.remove(&g.id).unwrap_or_default();
             g.meta = meta.remove(&g.id);
+            g.launch_options = opts.remove(&g.id).unwrap_or_default();
             games.push(g);
         }
         Ok(games)
@@ -470,6 +500,25 @@ impl Db {
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn set_launch_options(&self, id: &str, o: &LaunchOptions) -> AppResult<()> {
+        self.conn().execute(
+            "INSERT INTO launch_options (game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(game_id) DO UPDATE SET args = excluded.args, pre_command = excluded.pre_command,
+                post_command = excluded.post_command, close_store_on_exit = excluded.close_store_on_exit,
+                run_as_admin = excluded.run_as_admin",
+            params![
+                id,
+                o.args.trim(),
+                o.pre_command.trim(),
+                o.post_command.trim(),
+                o.close_store_on_exit as i64,
+                o.run_as_admin as i64
+            ],
+        )?;
+        Ok(())
     }
 
     // ---------------------------------------------------------------- metadatos y color

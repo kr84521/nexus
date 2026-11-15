@@ -9,6 +9,7 @@ mod models;
 mod playtime;
 mod scanners;
 mod state;
+mod stats;
 mod tray;
 
 use std::sync::atomic::AtomicBool;
@@ -29,6 +30,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -82,6 +84,8 @@ pub fn run() {
             commands::library::get_library,
             commands::library::scan_library,
             commands::library::launch_game,
+            commands::library::set_launch_options,
+            commands::library::get_stats,
             commands::library::set_favorite,
             commands::library::set_hidden,
             commands::library::set_custom_title,

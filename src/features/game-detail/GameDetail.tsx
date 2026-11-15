@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   Pencil,
   Play,
+  SlidersHorizontal,
   Star,
   Timer,
   Trash2,
@@ -29,8 +30,18 @@ import { SourcesPanel } from "./SourcesPanel";
 import { TrailerVideo } from "./TrailerVideo";
 
 export function GameDetail({ game }: { game: Game }) {
-  const { select, launch, toggleFavorite, toggleHidden, removeGame, upsert, collections, toggleInCollection, openArt } =
-    useLibrary();
+  const {
+    select,
+    launch,
+    toggleFavorite,
+    toggleHidden,
+    removeGame,
+    upsert,
+    collections,
+    toggleInCollection,
+    openArt,
+    openLaunchOptions,
+  } = useLibrary();
   const artOpen = useLibrary((s) => s.artTarget !== null);
   const running = useLibrary((s) => !!s.running[game.id]);
   const gameAccent = useSettings((s) => s.theme.gameAccent);
@@ -263,6 +274,14 @@ export function GameDetail({ game }: { game: Game }) {
             </IconButton>
             <IconButton title="Cambiar arte" className="size-12 bg-bg/40 backdrop-blur" onClick={() => openArt(game.id)}>
               <ImageIcon size={18} />
+            </IconButton>
+            <IconButton
+              title="Opciones de lanzamiento"
+              className="size-12 bg-bg/40 backdrop-blur"
+              active={!!(game.launchOptions.args || game.launchOptions.preCommand || game.launchOptions.postCommand || game.launchOptions.closeStoreOnExit || game.launchOptions.runAsAdmin)}
+              onClick={() => openLaunchOptions(game.id)}
+            >
+              <SlidersHorizontal size={18} />
             </IconButton>
             {installPath && (
               <IconButton

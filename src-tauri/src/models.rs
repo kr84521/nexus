@@ -111,8 +111,28 @@ pub struct Game {
     /// Color dominante de la portada (#rrggbb), para el acento por juego.
     pub art_color: Option<String>,
     pub meta: Option<Metadata>,
+    pub launch_options: LaunchOptions,
     pub sources: Vec<GameSource>,
     pub collections: Vec<String>,
+}
+
+/// Opciones de lanzamiento por juego (tabla `launch_options`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchOptions {
+    /// Argumentos extra (solo ejecutables y Steam).
+    #[serde(default)]
+    pub args: String,
+    /// Comando de consola antes de lanzar.
+    #[serde(default)]
+    pub pre_command: String,
+    /// Comando de consola al terminar la sesión.
+    #[serde(default)]
+    pub post_command: String,
+    #[serde(default)]
+    pub close_store_on_exit: bool,
+    #[serde(default)]
+    pub run_as_admin: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

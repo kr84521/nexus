@@ -35,6 +35,15 @@ CREATE TABLE IF NOT EXISTS metadata (
     trailer_poster TEXT
 );
 
+CREATE TABLE IF NOT EXISTS launch_options (
+    game_id             TEXT PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+    args                TEXT NOT NULL DEFAULT '',
+    pre_command         TEXT NOT NULL DEFAULT '',
+    post_command        TEXT NOT NULL DEFAULT '',
+    close_store_on_exit INTEGER NOT NULL DEFAULT 0,
+    run_as_admin        INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,

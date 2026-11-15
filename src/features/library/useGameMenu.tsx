@@ -1,4 +1,4 @@
-import { EyeOff, FolderOpen, Image as ImageIcon, Play, Star, Trash2 } from "lucide-react";
+import { EyeOff, FolderOpen, Image as ImageIcon, Play, SlidersHorizontal, Star, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { MenuEntry, MenuPosition } from "@/components/ui/ContextMenu";
 import { api, errorText } from "@/lib/api";
@@ -17,7 +17,8 @@ export function useGameMenu(game: Game) {
   }, []);
   const close = useCallback(() => setAt(null), []);
 
-  const { launch, toggleFavorite, toggleHidden, removeGame, collections, toggleInCollection, openArt } = useLibrary();
+  const { launch, toggleFavorite, toggleHidden, removeGame, collections, toggleInCollection, openArt, openLaunchOptions } =
+    useLibrary();
   const installPath = game.sources.find((s) => s.installPath)?.installPath;
 
   const entries: MenuEntry[] = [
@@ -37,6 +38,7 @@ export function useGameMenu(game: Game) {
     })),
     "separator",
     { label: "Cambiar arte", icon: <ImageIcon size={14} />, onClick: () => openArt(game.id) },
+    { label: "Opciones de lanzamiento…", icon: <SlidersHorizontal size={14} />, onClick: () => openLaunchOptions(game.id) },
     ...(installPath
       ? [
           {

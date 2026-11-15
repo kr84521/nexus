@@ -1,4 +1,4 @@
-import { Clock, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Settings, Star } from "lucide-react";
+import { Activity, Clock, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { STORE_META, STORE_ORDER } from "@/lib/stores";
 import { useLibrary, type Filter } from "@/stores/library";
@@ -6,7 +6,7 @@ import type { Store } from "@/types";
 import { AddGameModal } from "@/features/library/AddGameModal";
 
 export function Sidebar() {
-  const { games, collections, filter, page, scanning, setFilter, setPage, scan, createCollection } = useLibrary();
+  const { games, collections, filter, page, scanning, setFilter, setPage, scan, createCollection, setPaletteOpen } = useLibrary();
   const [addOpen, setAddOpen] = useState(false);
   const [newColl, setNewColl] = useState<string | null>(null);
 
@@ -46,6 +46,20 @@ export function Sidebar() {
         {item({ type: "all" }, <LayoutGrid size={16} />, "Todos los juegos", counts.all)}
         {item({ type: "favorites" }, <Star size={16} />, "Favoritos", counts.favorites)}
         {item({ type: "recent" }, <Clock size={16} />, "Recientes", counts.recent)}
+        <button
+          onClick={() => setPage("stats")}
+          className={`focus-ring flex w-full items-center gap-2.5 rounded-card px-2.5 py-[7px] text-[13px] transition
+            ${page === "stats" ? "bg-accent/16 font-medium text-fg" : "text-muted hover:bg-fg/6 hover:text-fg"}`}
+        >
+          <Activity size={16} /> <span className="flex-1 text-left">Actividad</span>
+        </button>
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="focus-ring flex w-full items-center gap-2.5 rounded-card px-2.5 py-[7px] text-[13px] text-muted transition hover:bg-fg/6 hover:text-fg"
+        >
+          <Search size={16} /> <span className="flex-1 text-left">Búsqueda rápida</span>
+          <kbd className="rounded border border-line px-1 text-[10px]">Ctrl K</kbd>
+        </button>
       </nav>
 
       <SectionLabel>Tiendas</SectionLabel>

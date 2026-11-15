@@ -15,7 +15,7 @@ export type Filter =
   | { type: "genre"; genre: string };
 
 export type SortKey = "title" | "lastPlayed" | "added" | "playCount";
-export type Page = "library" | "settings";
+export type Page = "library" | "settings" | "stats";
 
 interface LibraryState {
   games: Game[];
@@ -33,6 +33,9 @@ interface LibraryState {
   artTarget: string | null;
   /** Juegos con un proceso en ejecución (seguimiento de tiempo de juego). */
   running: Record<string, true>;
+  paletteOpen: boolean;
+  /** Juego cuyo diálogo de opciones de lanzamiento está abierto. */
+  launchOptionsTarget: string | null;
 
   load: () => Promise<void>;
   scan: (silent?: boolean) => Promise<void>;
@@ -47,6 +50,8 @@ interface LibraryState {
   setFetchingArt: (v: boolean) => void;
   openArt: (id: string | null) => void;
   setRunning: (id: string, running: boolean) => void;
+  setPaletteOpen: (v: boolean) => void;
+  openLaunchOptions: (id: string | null) => void;
 
   launch: (id: string, sourceId?: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
@@ -82,6 +87,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   hoveredId: null,
   artTarget: null,
   running: {},
+  paletteOpen: false,
+  launchOptionsTarget: null,
 
   load: async () => {
     try {
@@ -141,6 +148,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   hover: (hoveredId) => set({ hoveredId }),
   setFetchingArt: (fetchingArt) => set({ fetchingArt }),
   openArt: (artTarget) => set({ artTarget }),
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  openLaunchOptions: (launchOptionsTarget) => set({ launchOptionsTarget }),
   setRunning: (id, running) =>
     set((s) => {
       const next = { ...s.running };

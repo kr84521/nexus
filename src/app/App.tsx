@@ -4,6 +4,10 @@ import { useEffect, useMemo } from "react";
 import { GamepadHints } from "@/components/GamepadHints";
 import { Toasts } from "@/components/Toasts";
 import { ArtworkPicker } from "@/features/artwork/ArtworkPicker";
+import { LaunchOptionsModal } from "@/features/game-detail/LaunchOptionsModal";
+import { CommandPalette } from "@/features/library/CommandPalette";
+import { StatsView } from "@/features/stats/StatsView";
+import { displayTitle, formatPlaytime } from "@/lib/art";
 import { ArtworkBackdrop } from "@/features/library/ArtworkBackdrop";
 import { LibraryView } from "@/features/library/LibraryView";
 import { GameDetail } from "@/features/game-detail/GameDetail";
@@ -17,8 +21,22 @@ import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 
 export function App() {
-  const { page, selectedId, artTarget, games, loaded, load, scan, refreshGame, setFetchingArt, setRunning, openArt } =
-    useLibrary();
+  const {
+    page,
+    selectedId,
+    artTarget,
+    launchOptionsTarget,
+    games,
+    loaded,
+    load,
+    scan,
+    refreshGame,
+    setFetchingArt,
+    setRunning,
+    openArt,
+    openLaunchOptions,
+  } = useLibrary();
+  const launchOptionsGame = games.find((g) => g.id === launchOptionsTarget) ?? null;
   const loadSettings = useSettings((s) => s.load);
   const selected = games.find((g) => g.id === selectedId) ?? null;
   const artGame = games.find((g) => g.id === artTarget) ?? null;
@@ -43,6 +61,10 @@ export function App() {
       listen("artwork-done", () => setFetchingArt(false)),
       listen<{ gameId: string; running: boolean }>("game-running", (e) => setRunning(e.payload.gameId, e.payload.running)),
       listen("scan-requested", () => scan()),
+      listen<{ gameId: string; secs: number }>("session-ended", (e) => {
+        const g = useLibrary.getState().games.find((x) => x.id === e.payload.gameId);
+        toast.info(`${g ? displayTitle(g) : "Sesión"}: has jugado ${formatPlaytime(e.payload.secs)}`);
+      }),
     ];
     return () => {
       unlisten.forEach((p) => p.then((f) => f()));
@@ -54,7 +76,9 @@ export function App() {
     () => ({
       back: () => {
         const s = useLibrary.getState();
-        if (s.artTarget) s.openArt(null);
+        if (s.paletteOpen) s.setPaletteOpen(false);
+        else if (s.launchOptionsTarget) s.openLaunchOptions(null);
+        else if (s.artTarget) s.openArt(null);
         else if (s.selectedId) s.select(null);
         else if (s.page !== "library") s.setPage("library");
         else window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
@@ -70,6 +94,11 @@ export function App() {
   // Atajos globales.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        useLibrary.getState().setPaletteOpen(!useLibrary.getState().paletteOpen);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         useLibrary.getState().setPage("library");
@@ -98,6 +127,10 @@ export function App() {
               <Page key="settings">
                 <SettingsView />
               </Page>
+            ) : page === "stats" ? (
+              <Page key="stats">
+                <StatsView />
+              </Page>
             ) : (
               <Page key="library">{loaded && <LibraryView />}</Page>
             )}
@@ -105,6 +138,8 @@ export function App() {
         </main>
       </div>
       {artGame && <ArtworkPicker game={artGame} open onClose={() => openArt(null)} />}
+      {launchOptionsGame && <LaunchOptionsModal game={launchOptionsGame} onClose={() => openLaunchOptions(null)} />}
+      <CommandPalette />
       {gamepad && <GamepadHints />}
       <Toasts />
     </div>

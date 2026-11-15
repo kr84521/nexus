@@ -38,6 +38,7 @@ export interface Game {
   playtimeSecs: number;
   artColor: string | null;
   meta: Metadata | null;
+  launchOptions: LaunchOptions;
   sources: GameSource[];
   collections: string[];
 }
@@ -51,6 +52,27 @@ export interface Metadata {
   publisher: string | null;
   trailerUrl: string | null;
   trailerPoster: string | null;
+}
+
+export interface LaunchOptions {
+  args: string;
+  preCommand: string;
+  postCommand: string;
+  closeStoreOnExit: boolean;
+  runAsAdmin: boolean;
+}
+
+export interface StatsReport {
+  totalSecs: number;
+  weekSecs: number;
+  monthSecs: number;
+  sessionsCount: number;
+  gamesPlayed: number;
+  streakDays: number;
+  days: { day: string; secs: number }[];
+  topAllTime: { gameId: string; title: string; secs: number; sessions: number }[];
+  topMonth: { gameId: string; title: string; secs: number; sessions: number }[];
+  recent: { gameId: string; title: string; startedAt: number; secs: number }[];
 }
 
 export interface Collection {

@@ -5,8 +5,9 @@ use crate::artwork;
 use crate::error::{AppError, AppResult};
 use crate::launcher;
 use crate::library;
-use crate::models::{Collection, Game, ScanReport};
+use crate::models::{Collection, Game, LaunchOptions, ScanReport};
 use crate::playtime;
+use crate::stats::{self, StatsReport};
 use crate::state::AppState;
 
 #[derive(Serialize)]
@@ -41,10 +42,33 @@ pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: String, sourc
         .and_then(|sid| game.sources.iter().find(|s| s.id == sid))
         .or_else(|| game.sources.first())
         .ok_or_else(|| AppError::msg("Este juego no tiene ninguna instalación"))?;
-    let child = launcher::launch(&source.launch)?;
+    let opts = &game.launch_options;
+    launcher::run_user_command(&opts.pre_command, source.install_path.as_deref());
+    let child = launcher::launch(&source.launch, opts)?;
     state.db.record_launch(&id)?;
-    playtime::track(app, id.clone(), source.install_path.clone(), child);
+    playtime::track(
+        app,
+        id.clone(),
+        source.install_path.clone(),
+        child,
+        playtime::ExitActions {
+            post_command: opts.post_command.clone(),
+            close_store: opts.close_store_on_exit.then_some(source.store),
+            cwd: source.install_path.clone(),
+        },
+    );
     state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn set_launch_options(state: State<'_, AppState>, id: String, options: LaunchOptions) -> AppResult<Game> {
+    state.db.set_launch_options(&id, &options)?;
+    state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn get_stats(state: State<'_, AppState>) -> AppResult<StatsReport> {
+    stats::compute(&state.db)
 }
 
 #[tauri::command]

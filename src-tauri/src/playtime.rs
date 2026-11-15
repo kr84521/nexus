@@ -10,9 +10,27 @@ use serde::Serialize;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::launcher;
+use crate::models::Store;
 use crate::state::AppState;
 
 pub const EVENT_GAME_RUNNING: &str = "game-running";
+pub const EVENT_SESSION_ENDED: &str = "session-ended";
+
+/// Qué hacer cuando termina la sesión (opciones de lanzamiento del juego).
+#[derive(Default)]
+pub struct ExitActions {
+    pub post_command: String,
+    pub close_store: Option<Store>,
+    pub cwd: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SessionEndedPayload<'a> {
+    game_id: &'a str,
+    secs: i64,
+}
 
 /// Tiempo máximo esperando a que aparezca el proceso (las tiendas tardan en arrancar).
 const WAIT_FOR_START: Duration = Duration::from_secs(150);
@@ -36,12 +54,12 @@ fn is_usable_root(install: &str) -> bool {
     n.len() > 3 && !n.to_lowercase().ends_with("program files") && !n.to_lowercase().ends_with("program files (x86)")
 }
 
-pub fn track(app: AppHandle, game_id: String, install_path: Option<String>, child_pid: Option<u32>) {
+pub fn track(app: AppHandle, game_id: String, install_path: Option<String>, child_pid: Option<u32>, on_exit: ExitActions) {
     let root = install_path.map(|p| norm(Path::new(&p))).filter(|r| is_usable_root(r));
     if root.is_none() && child_pid.is_none() {
         return;
     }
-    std::thread::spawn(move || watch(app, game_id, root, child_pid));
+    std::thread::spawn(move || watch(app, game_id, root, child_pid, on_exit));
 }
 
 fn matching_pids(sys: &mut System, root: Option<&str>, child: Option<u32>) -> HashSet<Pid> {
@@ -66,7 +84,7 @@ fn matching_pids(sys: &mut System, root: Option<&str>, child: Option<u32>) -> Ha
     set
 }
 
-fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u32>) {
+fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u32>, on_exit: ExitActions) {
     let mut sys = System::new();
     let deadline = Instant::now() + WAIT_FOR_START;
 
@@ -103,6 +121,12 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
     }
     let _ = app.emit(EVENT_GAME_RUNNING, RunningPayload { game_id: &game_id, running: false });
     let _ = app.emit(crate::artwork::EVENT_ART_UPDATED, &game_id); // reutiliza el refresco de un juego
+    let _ = app.emit(EVENT_SESSION_ENDED, SessionEndedPayload { game_id: &game_id, secs });
+
+    launcher::run_user_command(&on_exit.post_command, on_exit.cwd.as_deref());
+    if let Some(store) = on_exit.close_store {
+        launcher::shutdown_store(store);
+    }
 }
 
 fn started_ms(at: Instant) -> i64 {

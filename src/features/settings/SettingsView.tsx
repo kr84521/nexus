@@ -19,6 +19,9 @@ export function SettingsView() {
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const closeToTray = useSettings((s) => s.closeToTray);
   const setCloseToTray = useSettings((s) => s.setCloseToTray);
+  const quickSearch = useSettings((s) => s.quickSearch);
+  const setQuickSearch = useSettings((s) => s.setQuickSearch);
+  const [shortcutDraft, setShortcutDraft] = useState(quickSearch.shortcut);
 
   useEffect(() => {
     isEnabled().then(setAutostart).catch(() => setAutostart(false));
@@ -151,6 +154,25 @@ export function SettingsView() {
           </Row>
           <Row label="Cerrar a la bandeja" hint="Al cerrar la ventana Nexus sigue en la bandeja; sal desde su menú">
             <Toggle checked={closeToTray} onChange={setCloseToTray} />
+          </Row>
+          <Row label="Atajo global de búsqueda" hint="Abre la búsqueda rápida desde cualquier sitio, incluso con Nexus en la bandeja">
+            <Toggle checked={quickSearch.enabled} onChange={(v) => setQuickSearch({ ...quickSearch, enabled: v })} />
+          </Row>
+          <Row label="Combinación" hint="Teclas unidas con +: CommandOrControl, Shift, Alt, Space, letras, F1-F12…">
+            <Input
+              value={shortcutDraft}
+              onChange={(e) => setShortcutDraft(e.target.value)}
+              disabled={!quickSearch.enabled}
+              className="w-56 font-mono text-xs disabled:opacity-40"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!quickSearch.enabled || shortcutDraft.trim() === quickSearch.shortcut}
+              onClick={() => setQuickSearch({ ...quickSearch, shortcut: shortcutDraft.trim() })}
+            >
+              Aplicar
+            </Button>
           </Row>
         </Section>
 
