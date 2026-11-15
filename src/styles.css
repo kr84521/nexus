@@ -113,3 +113,11 @@ input[type="range"] {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Modo TV: todo más grande, pensado para verse desde el sofá */
+[data-tv="true"] body {
+  font-size: 112%;
+}
+[data-tv="true"] .cover-grid {
+  gap: calc(var(--gap) * 1.3);
+}

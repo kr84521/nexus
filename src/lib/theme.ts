@@ -42,6 +42,8 @@ export interface Theme {
   trailers: boolean;
   /** Disposición de la biblioteca */
   layout: "grid" | "rows";
+  /** Ruta local de una imagen de fondo propia */
+  backgroundImage: string | null;
 }
 
 export const PRESETS: Record<PresetId, { label: string; palette: Palette; accent: string }> = {
@@ -115,6 +117,7 @@ export const DEFAULT_THEME: Theme = {
   gameAccent: true,
   trailers: true,
   layout: "grid",
+  backgroundImage: null,
 };
 
 const FONTS: Record<FontChoice, string> = {
@@ -148,7 +151,9 @@ export function applyTheme(t: Theme) {
   s.setProperty("--accent", t.accent);
   s.setProperty("--accent-fg", contrastText(t.accent));
   s.setProperty("--radius", `${t.radius}px`);
-  s.setProperty("--cover-w", `${t.coverWidth}px`);
+  // En modo TV las portadas se ven desde el sofá: nunca por debajo de 240px.
+  const tv = document.documentElement.dataset.tv === "true";
+  s.setProperty("--cover-w", `${tv ? Math.max(t.coverWidth, 240) : t.coverWidth}px`);
   s.setProperty("--gap", `${t.gap}px`);
   s.setProperty("--hero-blur", `${t.heroBlur}px`);
   s.setProperty("--hero-dim", `${t.heroDim / 100}`);

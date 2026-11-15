@@ -6,6 +6,7 @@ const HINTS: [string, string][] = [
   ["X", "Jugar"],
   ["Y", "Favorito"],
   ["LB/RB", "Filtro"],
+  ["Select", "Modo TV"],
 ];
 
 /** Barra de ayuda que aparece cuando hay un mando conectado. */

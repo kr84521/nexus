@@ -38,6 +38,12 @@ export const api = {
   refetchMissingMetadata: () => invoke<void>("refetch_missing_metadata"),
 
   getSettings: () => invoke<Record<string, unknown>>("get_settings"),
+  setBackgroundImage: (path: string) => invoke<string>("set_background_image", { path }),
+  writeTextFile: (path: string, content: string) => invoke<void>("write_text_file", { path, content }),
+  readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  exportLibrary: (dir: string) => invoke<number>("export_library", { dir }),
+  importLibrary: (dir: string) =>
+    invoke<{ games: number; collections: number; sessions: number; artworkFiles: number }>("import_library", { dir }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
 };
 

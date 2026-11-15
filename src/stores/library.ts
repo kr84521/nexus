@@ -36,6 +36,8 @@ interface LibraryState {
   paletteOpen: boolean;
   /** Juego cuyo diálogo de opciones de lanzamiento está abierto. */
   launchOptionsTarget: string | null;
+  /** Modo TV: pantalla completa, sin barra lateral, todo más grande. */
+  tvMode: boolean;
 
   load: () => Promise<void>;
   scan: (silent?: boolean) => Promise<void>;
@@ -52,6 +54,7 @@ interface LibraryState {
   setRunning: (id: string, running: boolean) => void;
   setPaletteOpen: (v: boolean) => void;
   openLaunchOptions: (id: string | null) => void;
+  setTvMode: (v: boolean) => void;
 
   launch: (id: string, sourceId?: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
@@ -89,6 +92,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   running: {},
   paletteOpen: false,
   launchOptionsTarget: null,
+  tvMode: false,
 
   load: async () => {
     try {
@@ -150,6 +154,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   openArt: (artTarget) => set({ artTarget }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   openLaunchOptions: (launchOptionsTarget) => set({ launchOptionsTarget }),
+  setTvMode: (tvMode) => set({ tvMode, page: "library", selectedId: null }),
   setRunning: (id, running) =>
     set((s) => {
       const next = { ...s.running };

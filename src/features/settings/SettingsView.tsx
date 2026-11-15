@@ -10,6 +10,7 @@ import { useSettings } from "@/stores/settings";
 import { toast } from "@/stores/toast";
 import { FoldersSection } from "./FoldersSection";
 import { UpdateSection } from "./UpdateSection";
+import { BackgroundRow, BackupSection, ThemeFileRow } from "./BackupSection";
 
 export function SettingsView() {
   const { theme, updateTheme, resetTheme, sgdbApiKey, setApiKey } = useSettings();
@@ -118,6 +119,8 @@ export function SettingsView() {
           <Row label="Tráilers de fondo" hint="Reproduce el tráiler en silencio en la ficha del juego">
             <Toggle checked={theme.trailers} onChange={(v) => updateTheme({ trailers: v })} />
           </Row>
+          <BackgroundRow />
+          <ThemeFileRow />
         </Section>
 
         <Section title="Biblioteca">
@@ -145,6 +148,8 @@ export function SettingsView() {
         </Section>
 
         <FoldersSection />
+
+        <BackupSection />
 
         <UpdateSection />
 

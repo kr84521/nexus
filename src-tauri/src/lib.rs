@@ -1,4 +1,5 @@
 mod artwork;
+mod backup;
 mod commands;
 mod db;
 mod error;
@@ -109,6 +110,11 @@ pub fn run() {
             commands::artwork::refetch_missing_metadata,
             commands::settings::get_settings,
             commands::settings::set_setting,
+            commands::files::set_background_image,
+            commands::files::write_text_file,
+            commands::files::read_text_file,
+            commands::files::export_library,
+            commands::files::import_library,
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Nexus");

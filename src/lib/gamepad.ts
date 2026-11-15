@@ -13,9 +13,10 @@ export interface GamepadActions {
   play: (gameId: string) => void;
   favorite: (gameId: string) => void;
   cycleFilter: (delta: 1 | -1) => void;
+  toggleTv: () => void;
 }
 
-const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 } as const;
+const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, SELECT: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 } as const;
 const REPEAT_DELAY = 360;
 const REPEAT_RATE = 110;
 const DEADZONE = 0.55;
@@ -167,6 +168,7 @@ export function useGamepad(actions: GamepadActions): boolean {
       });
       once("lb", pressed(BTN.LB), () => actions.cycleFilter(-1));
       once("rb", pressed(BTN.RB), () => actions.cycleFilter(1));
+      once("select", pressed(BTN.SELECT), actions.toggleTv);
       once("start", pressed(BTN.START), () => {
         const id = focusedGameId();
         if (id) actions.play(id);

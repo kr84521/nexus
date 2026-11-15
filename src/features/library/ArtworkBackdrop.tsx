@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { artSrc } from "@/lib/art";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
@@ -7,6 +8,7 @@ import { useSettings } from "@/stores/settings";
 /** Fondo de toda la ventana: héroe desenfocado del juego bajo el cursor (o del seleccionado). */
 export function ArtworkBackdrop() {
   const enabled = useSettings((s) => s.theme.dynamicBackground);
+  const customBg = useSettings((s) => s.theme.backgroundImage);
   const hoveredId = useLibrary((s) => s.hoveredId);
   const selectedId = useLibrary((s) => s.selectedId);
   const games = useLibrary((s) => s.games);
@@ -27,6 +29,9 @@ export function ArtworkBackdrop() {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {customBg && (
+        <img src={convertFileSrc(customBg)} alt="" className="absolute inset-0 size-full object-cover" draggable={false} />
+      )}
       <AnimatePresence>
         {src && (
           <motion.img

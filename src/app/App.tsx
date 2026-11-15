@@ -6,6 +6,9 @@ import { Toasts } from "@/components/Toasts";
 import { ArtworkPicker } from "@/features/artwork/ArtworkPicker";
 import { LaunchOptionsModal } from "@/features/game-detail/LaunchOptionsModal";
 import { CommandPalette } from "@/features/library/CommandPalette";
+import { TvBar } from "@/features/library/TvBar";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { applyTheme } from "@/lib/theme";
 import { StatsView } from "@/features/stats/StatsView";
 import { displayTitle, formatPlaytime } from "@/lib/art";
 import { ArtworkBackdrop } from "@/features/library/ArtworkBackdrop";
@@ -35,6 +38,7 @@ export function App() {
     setRunning,
     openArt,
     openLaunchOptions,
+    tvMode,
   } = useLibrary();
   const launchOptionsGame = games.find((g) => g.id === launchOptionsTarget) ?? null;
   const loadSettings = useSettings((s) => s.load);
@@ -71,6 +75,14 @@ export function App() {
     };
   }, [refreshGame, setFetchingArt, setRunning, scan]);
 
+  // Modo TV: pantalla completa + variables de tamaño.
+  useEffect(() => {
+    document.documentElement.dataset.tv = String(tvMode);
+    applyTheme(useSettings.getState().theme);
+    getCurrentWindow().setFullscreen(tvMode).catch(() => {});
+    if (tvMode) requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-game-id]")?.focus());
+  }, [tvMode]);
+
   // Mando.
   const gamepadActions = useMemo(
     () => ({
@@ -86,6 +98,7 @@ export function App() {
       play: (id: string) => useLibrary.getState().launch(id),
       favorite: (id: string) => useLibrary.getState().toggleFavorite(id),
       cycleFilter,
+      toggleTv: () => useLibrary.getState().setTvMode(!useLibrary.getState().tvMode),
     }),
     [],
   );
@@ -104,6 +117,15 @@ export function App() {
         useLibrary.getState().setPage("library");
         requestAnimationFrame(() => document.getElementById("library-search")?.focus());
       }
+      if (e.key === "F11") {
+        e.preventDefault();
+        useLibrary.getState().setTvMode(!useLibrary.getState().tvMode);
+        return;
+      }
+      if (e.key === "Escape" && useLibrary.getState().tvMode) {
+        const s = useLibrary.getState();
+        if (!s.selectedId && !s.artTarget && !s.paletteOpen && !s.launchOptionsTarget) s.setTvMode(false);
+      }
       if (e.key === "F5") {
         e.preventDefault();
         useLibrary.getState().scan();
@@ -116,10 +138,14 @@ export function App() {
   return (
     <div className="relative flex h-full flex-col bg-bg text-fg">
       <ArtworkBackdrop />
-      <TitleBar />
+      {tvMode ? <TvBar /> : <TitleBar />}
       <div className="relative z-10 flex min-h-0 flex-1">
-        <Sidebar />
-        <main className="relative min-w-0 flex-1 overflow-hidden rounded-tl-[calc(var(--radius)+8px)] border-t border-l border-line/60 bg-bg/55">
+        {!tvMode && <Sidebar />}
+        <main
+          className={`relative min-w-0 flex-1 overflow-hidden ${
+            tvMode ? "bg-transparent" : "rounded-tl-[calc(var(--radius)+8px)] border-t border-l border-line/60 bg-bg/55"
+          }`}
+        >
           <AnimatePresence mode="wait">
             {selected ? (
               <GameDetail key={`detail-${selected.id}`} game={selected} />

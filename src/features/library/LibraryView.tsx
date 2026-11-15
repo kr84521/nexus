@@ -1,5 +1,6 @@
-import { ArrowDownAZ, Gamepad2, LayoutGrid, Rows3, Search, Tag } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowDownAZ, Gamepad2, LayoutGrid, Rows3, Search, Tag, Tv } from "lucide-react";
+import { useMemo, useRef } from "react";
+import { useVirtualGrid } from "@/lib/useVirtualGrid";
 import { Button } from "@/components/ui/Button";
 import { STORE_META } from "@/lib/stores";
 import { selectVisible, useLibrary, type SortKey } from "@/stores/library";
@@ -16,7 +17,11 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 export function LibraryView() {
   const state = useLibrary();
-  const { filter, search, sort, loaded, scanning, games, collections, setSearch, setSort, setFilter, scan } = state;
+  const { filter, search, sort, loaded, scanning, games, collections, setSearch, setSort, setFilter, scan, tvMode, setTvMode } = state;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const coverWidth = useSettings((s) => s.theme.coverWidth);
+  const gap = useSettings((s) => s.theme.gap);
+  const showTitles = useSettings((s) => s.theme.showTitles);
   const visible = useMemo(() => selectVisible(state), [state.games, filter, search, sort]); // eslint-disable-line react-hooks/exhaustive-deps
   const layout = useSettings((s) => s.theme.layout);
   const updateTheme = useSettings((s) => s.updateTheme);
@@ -26,6 +31,7 @@ export function LibraryView() {
     return Array.from(count.entries()).sort((a, b) => b[1] - a[1]);
   }, [games]);
   const showRows = layout === "rows" && filter.type === "all" && !search.trim();
+  const vg = useVirtualGrid(scrollRef, showRows ? 0 : visible.length, tvMode ? Math.max(coverWidth, 240) : coverWidth, gap, showTitles);
 
   const heading = (() => {
     switch (filter.type) {
@@ -94,6 +100,15 @@ export function LibraryView() {
             ))}
           </select>
         </label>
+        {!tvMode && (
+          <button
+            onClick={() => setTvMode(true)}
+            title="Modo TV (F11)"
+            className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface/70 text-muted hover:text-fg"
+          >
+            <Tv size={15} />
+          </button>
+        )}
         <div className="flex overflow-hidden rounded-full border border-line bg-surface/70">
           <button
             onClick={() => updateTheme({ layout: "grid" })}
@@ -112,7 +127,7 @@ export function LibraryView() {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-8">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-7 pb-8">
         {!loaded ? null : games.length === 0 ? (
           <Empty
             icon={<Gamepad2 size={44} />}
@@ -129,10 +144,12 @@ export function LibraryView() {
         ) : showRows ? (
           <RowsView games={visible} />
         ) : (
-          <div className="cover-grid">
-            {visible.map((g) => (
-              <GameCard key={g.id} game={g} />
-            ))}
+          <div data-virtual-grid style={{ paddingTop: vg.padTop, paddingBottom: vg.padBottom }}>
+            <div className="cover-grid">
+              {visible.slice(vg.start, vg.end).map((g) => (
+                <GameCard key={g.id} game={g} />
+              ))}
+            </div>
           </div>
         )}
       </div>

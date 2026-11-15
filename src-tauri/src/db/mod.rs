@@ -444,6 +444,14 @@ impl Db {
         Ok(())
     }
 
+    /// Todas las sesiones (para exportar): (game_id, started_at, secs).
+    pub fn all_sessions(&self) -> AppResult<Vec<(String, i64, i64)>> {
+        let conn = self.conn();
+        let mut st = conn.prepare("SELECT game_id, started_at, secs FROM sessions ORDER BY started_at")?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     // ---------------------------------------------------------------- arte
 
     pub fn set_art(&self, id: &str, kind: ArtKind, path: Option<&str>) -> AppResult<()> {
