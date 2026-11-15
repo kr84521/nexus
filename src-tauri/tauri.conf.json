@@ -35,7 +35,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCQzBBMzFFRkJGNUZFRkIKUldUNy92WDdIcVBBVzNVdk5iQ1pqMzJXbmtBeTNDZWRtVXducS9xQ3VrM0o3WDZnLzlpRUZjamgK",
-      "endpoints": ["https://github.com/CAMBIA-POR-TU-USUARIO/nexus/releases/latest/download/latest.json"]
+      "endpoints": ["https://github.com/kr84521/nexus/releases/latest/download/latest.json"]
     }
   },
   "bundle": {

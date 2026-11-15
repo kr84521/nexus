@@ -4,3 +4,6 @@ src-tauri/target/
 src-tauri/gen/schemas/
 *.log
 .DS_Store
+
+# Logo original en alta resolución (51 MB); los iconos generados están en src-tauri/icons/
+/logo.png
