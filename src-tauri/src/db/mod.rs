@@ -623,3 +623,105 @@ impl Db {
             .filter(|s| !s.trim().is_empty())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db(name: &str) -> std::path::PathBuf {
+        let p = std::env::temp_dir().join(format!("nexus-test-{name}-{}.db", now_ms()));
+        let _ = std::fs::remove_file(&p);
+        p
+    }
+
+    #[test]
+    fn fresh_db_starts_at_latest_version() {
+        let p = temp_db("fresh");
+        let db = Db::open(&p).unwrap();
+        let v: i64 = db.conn().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(v, SCHEMA_VERSION);
+        assert!(db.load_games().unwrap().is_empty());
+    }
+
+    #[test]
+    fn migrates_v0_database() {
+        let p = temp_db("v0");
+        {
+            // Esquema de la v0.1.0: sin playtime_secs, art_color ni meta_fetched.
+            let c = Connection::open(&p).unwrap();
+            c.execute_batch(
+                "CREATE TABLE games (id TEXT PRIMARY KEY, title TEXT NOT NULL, custom_title TEXT,
+                    favorite INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0, last_played INTEGER,
+                    play_count INTEGER NOT NULL DEFAULT 0, added_at INTEGER NOT NULL, preferred_source TEXT,
+                    sgdb_id INTEGER, art_cover TEXT, art_hero TEXT, art_logo TEXT, art_icon TEXT,
+                    art_version INTEGER NOT NULL DEFAULT 0, art_fetched INTEGER NOT NULL DEFAULT 0);
+                 CREATE TABLE sources (id TEXT PRIMARY KEY, game_id TEXT NOT NULL, store TEXT NOT NULL,
+                    store_id TEXT NOT NULL, title TEXT NOT NULL, install_path TEXT, launch TEXT NOT NULL);
+                 INSERT INTO games (id, title, added_at) VALUES ('g:hades', 'Hades', 1);
+                 INSERT INTO sources VALUES ('steam:1145360', 'g:hades', 'steam', '1145360', 'Hades', NULL,
+                    '{\"kind\":\"uri\",\"uri\":\"steam://rungameid/1145360\"}');",
+            )
+            .unwrap();
+        }
+        let db = Db::open(&p).unwrap();
+        let v: i64 = db.conn().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(v, SCHEMA_VERSION);
+
+        let games = db.load_games().unwrap();
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].playtime_secs, 0);
+        assert!(games[0].meta.is_none());
+        assert_eq!(games[0].sources[0].store, Store::Steam);
+
+        db.add_session("g:hades", 0, 90).unwrap();
+        db.set_metadata("g:hades", &Metadata { genres: vec!["Rol".into()], ..Default::default() }).unwrap();
+        let g = db.get_game("g:hades").unwrap();
+        assert_eq!(g.playtime_secs, 90);
+        assert_eq!(g.meta.unwrap().genres, vec!["Rol"]);
+
+        // Reabrir no debe fallar ni volver a migrar.
+        drop(db);
+        Db::open(&p).unwrap();
+    }
+
+    #[test]
+    fn merge_and_split_keep_sources() {
+        let p = temp_db("merge");
+        let db = Db::open(&p).unwrap();
+        let detected = vec![
+            DetectedGame {
+                store: Store::Steam,
+                store_id: "1".into(),
+                title: "Celeste".into(),
+                install_path: None,
+                launch: LaunchTarget::Uri { uri: "steam://rungameid/1".into() },
+            },
+            DetectedGame {
+                store: Store::Epic,
+                store_id: "cel".into(),
+                title: "Celeste Deluxe".into(),
+                install_path: None,
+                launch: LaunchTarget::Uri { uri: "epic://cel".into() },
+            },
+        ];
+        let stores: HashSet<Store> = [Store::Steam, Store::Epic].into_iter().collect();
+        db.apply_scan(&detected, &stores).unwrap();
+        assert_eq!(db.load_games().unwrap().len(), 2);
+
+        db.merge_games("g:celeste", "g:celestedeluxe").unwrap();
+        let games = db.load_games().unwrap();
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].sources.len(), 2);
+
+        // Un rescaneo respeta la fusión.
+        db.apply_scan(&detected, &stores).unwrap();
+        assert_eq!(db.load_games().unwrap().len(), 1);
+
+        let new_id = db.split_source("epic:cel").unwrap();
+        assert_eq!(new_id, "g:celestedeluxe#epic");
+        let games = db.load_games().unwrap();
+        assert_eq!(games.len(), 2);
+        db.apply_scan(&detected, &stores).unwrap();
+        assert_eq!(db.load_games().unwrap().len(), 2, "el rescaneo no debe volver a fusionar");
+    }
+}
