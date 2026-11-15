@@ -1,9 +1,11 @@
-import { ArrowDownAZ, Gamepad2, Search } from "lucide-react";
+import { ArrowDownAZ, Gamepad2, LayoutGrid, Rows3, Search, Tag } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/Button";
 import { STORE_META } from "@/lib/stores";
 import { selectVisible, useLibrary, type SortKey } from "@/stores/library";
+import { useSettings } from "@/stores/settings";
 import { GameCard } from "./GameCard";
+import { RowsView } from "./RowsView";
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "title", label: "Título" },
@@ -14,8 +16,16 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 export function LibraryView() {
   const state = useLibrary();
-  const { filter, search, sort, loaded, scanning, games, collections, setSearch, setSort, scan } = state;
+  const { filter, search, sort, loaded, scanning, games, collections, setSearch, setSort, setFilter, scan } = state;
   const visible = useMemo(() => selectVisible(state), [state.games, filter, search, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  const layout = useSettings((s) => s.theme.layout);
+  const updateTheme = useSettings((s) => s.updateTheme);
+  const genres = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const g of games) if (!g.hidden) for (const ge of g.meta?.genres ?? []) count.set(ge, (count.get(ge) ?? 0) + 1);
+    return Array.from(count.entries()).sort((a, b) => b[1] - a[1]);
+  }, [games]);
+  const showRows = layout === "rows" && filter.type === "all" && !search.trim();
 
   const heading = (() => {
     switch (filter.type) {
@@ -31,6 +41,8 @@ export function LibraryView() {
         return STORE_META[filter.store].label;
       case "collection":
         return collections.find((c) => c.id === filter.id)?.name ?? "Colección";
+      case "genre":
+        return filter.genre;
     }
   })();
 
@@ -50,6 +62,23 @@ export function LibraryView() {
             className="focus-ring h-9 w-64 rounded-full border border-line bg-surface/70 pr-3 pl-9 text-sm placeholder:text-muted/70"
           />
         </label>
+        {genres.length > 0 && (
+          <label className="relative flex items-center gap-1.5 text-sm text-muted">
+            <Tag size={15} />
+            <select
+              value={filter.type === "genre" ? filter.genre : ""}
+              onChange={(e) => setFilter(e.target.value ? { type: "genre", genre: e.target.value } : { type: "all" })}
+              className="focus-ring h-9 max-w-44 appearance-none rounded-full border border-line bg-surface/70 pr-3 pl-2 text-sm text-fg"
+            >
+              <option value="">Género</option>
+              {genres.map(([g, n]) => (
+                <option key={g} value={g}>
+                  {g} ({n})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="relative flex items-center gap-1.5 text-sm text-muted">
           <ArrowDownAZ size={15} />
           <select
@@ -65,6 +94,22 @@ export function LibraryView() {
             ))}
           </select>
         </label>
+        <div className="flex overflow-hidden rounded-full border border-line bg-surface/70">
+          <button
+            onClick={() => updateTheme({ layout: "grid" })}
+            title="Cuadrícula"
+            className={`flex h-9 w-9 items-center justify-center transition ${layout === "grid" ? "bg-accent/18 text-accent" : "text-muted hover:text-fg"}`}
+          >
+            <LayoutGrid size={15} />
+          </button>
+          <button
+            onClick={() => updateTheme({ layout: "rows" })}
+            title="Destacados"
+            className={`flex h-9 w-9 items-center justify-center transition ${layout === "rows" ? "bg-accent/18 text-accent" : "text-muted hover:text-fg"}`}
+          >
+            <Rows3 size={15} />
+          </button>
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-8">
@@ -81,6 +126,8 @@ export function LibraryView() {
           />
         ) : visible.length === 0 ? (
           <Empty icon={<Search size={40} />} title="Nada por aquí" text="Ningún juego coincide con este filtro." />
+        ) : showRows ? (
+          <RowsView games={visible} />
         ) : (
           <div className="cover-grid">
             {visible.map((g) => (

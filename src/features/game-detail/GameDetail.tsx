@@ -13,23 +13,35 @@ import {
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { StoreDot } from "@/app/Sidebar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { artSrc, displayTitle, formatPlaytime, relativeTime } from "@/lib/art";
 import { api, errorText } from "@/lib/api";
 import { STORE_META } from "@/lib/stores";
 import { useLibrary } from "@/stores/library";
+import { useSettings } from "@/stores/settings";
+import { contrastText } from "@/lib/theme";
 import { toast } from "@/stores/toast";
 import type { Game } from "@/types";
 import { FallbackCover } from "@/features/library/GameCard";
 import { SourcesPanel } from "./SourcesPanel";
+import { TrailerVideo } from "./TrailerVideo";
 
 export function GameDetail({ game }: { game: Game }) {
   const { select, launch, toggleFavorite, toggleHidden, removeGame, upsert, collections, toggleInCollection, openArt } =
     useLibrary();
   const artOpen = useLibrary((s) => s.artTarget !== null);
   const running = useLibrary((s) => !!s.running[game.id]);
+  const gameAccent = useSettings((s) => s.theme.gameAccent);
+  const trailers = useSettings((s) => s.theme.trailers);
+  const [showFull, setShowFull] = useState(false);
+  const accentStyle: CSSProperties | undefined =
+    gameAccent && game.artColor
+      ? ({ "--accent": game.artColor, "--accent-fg": contrastText(game.artColor) } as CSSProperties)
+      : undefined;
+  const trailer = trailers ? game.meta?.trailerUrl : null;
+  const meta = game.meta;
   const [menu, setMenu] = useState<"sources" | "collections" | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -63,6 +75,7 @@ export function GameDetail({ game }: { game: Game }) {
   return (
     <motion.div
       data-game-id={game.id}
+      style={accentStyle}
       className="relative flex h-full flex-col overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -72,7 +85,9 @@ export function GameDetail({ game }: { game: Game }) {
     >
       {/* Héroe */}
       <div className="absolute inset-x-0 top-0 h-[62%]">
-        {hero ? (
+        {trailer ? (
+          <TrailerVideo key={trailer} src={trailer} poster={hero ?? game.meta?.trailerPoster ?? undefined} />
+        ) : hero ? (
           <img src={hero} alt="" className="size-full object-cover" draggable={false} />
         ) : (
           <div className="size-full bg-gradient-to-br from-accent/30 via-surface-2 to-bg" />
@@ -147,6 +162,29 @@ export function GameDetail({ game }: { game: Game }) {
           </div>
 
           <SourcesPanel game={game} />
+
+          {meta && (meta.description || meta.genres.length > 0) && (
+            <div className="flex max-w-2xl flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg/70">
+                {meta.releaseYear && <span>{meta.releaseYear}</span>}
+                {meta.developer && <span>{meta.developer}</span>}
+                {meta.genres.map((g) => (
+                  <span key={g} className="rounded-full bg-fg/10 px-2 py-0.5">
+                    {g}
+                  </span>
+                ))}
+              </div>
+              {meta.description && (
+                <p
+                  onClick={() => setShowFull((v) => !v)}
+                  className={`cursor-pointer text-sm leading-relaxed text-fg/80 ${showFull ? "" : "line-clamp-2"}`}
+                  title={showFull ? "Mostrar menos" : "Mostrar más"}
+                >
+                  {meta.description}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-card shadow-lg shadow-accent/25">

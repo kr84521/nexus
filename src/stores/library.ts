@@ -11,7 +11,8 @@ export type Filter =
   | { type: "recent" }
   | { type: "hidden" }
   | { type: "store"; store: Store }
-  | { type: "collection"; id: string };
+  | { type: "collection"; id: string }
+  | { type: "genre"; genre: string };
 
 export type SortKey = "title" | "lastPlayed" | "added" | "playCount";
 export type Page = "library" | "settings";
@@ -229,6 +230,9 @@ export function selectVisible(s: LibraryState): Game[] {
       }
       case "collection":
         if (!g.collections.includes(s.filter.id)) return false;
+        break;
+      case "genre":
+        if (!g.meta?.genres.includes(s.filter.genre)) return false;
         break;
     }
     return !q || displayTitle(g).toLowerCase().includes(q);

@@ -108,8 +108,24 @@ pub struct Game {
     /// Marca de tiempo del último cambio de arte (para invalidar caché en el frontend).
     pub artwork_version: i64,
     pub playtime_secs: i64,
+    /// Color dominante de la portada (#rrggbb), para el acento por juego.
+    pub art_color: Option<String>,
+    pub meta: Option<Metadata>,
     pub sources: Vec<GameSource>,
     pub collections: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Metadata {
+    pub steam_appid: Option<String>,
+    pub description: Option<String>,
+    pub genres: Vec<String>,
+    pub release_year: Option<i64>,
+    pub developer: Option<String>,
+    pub publisher: Option<String>,
+    pub trailer_url: Option<String>,
+    pub trailer_poster: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

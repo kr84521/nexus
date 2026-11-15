@@ -18,7 +18,21 @@ CREATE TABLE IF NOT EXISTS games (
     art_icon         TEXT,
     art_version      INTEGER NOT NULL DEFAULT 0,
     art_fetched      INTEGER NOT NULL DEFAULT 0, -- 1 = ya se intentó la descarga automática
-    playtime_secs    INTEGER NOT NULL DEFAULT 0
+    playtime_secs    INTEGER NOT NULL DEFAULT 0,
+    art_color        TEXT,
+    meta_fetched     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS metadata (
+    game_id        TEXT PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+    steam_appid    TEXT,
+    description    TEXT,
+    genres         TEXT NOT NULL DEFAULT '[]',  -- JSON
+    release_year   INTEGER,
+    developer      TEXT,
+    publisher      TEXT,
+    trailer_url    TEXT,
+    trailer_poster TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

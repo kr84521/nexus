@@ -33,6 +33,7 @@ export const api = {
   sgdbSearch: (term: string) => invoke<SgdbGame[]>("sgdb_search", { term }),
   setSgdbGame: (gameId: string, sgdbId: number) => invoke<Game>("set_sgdb_game", { gameId, sgdbId }),
   refetchMissingArt: () => invoke<void>("refetch_missing_art"),
+  refetchMissingMetadata: () => invoke<void>("refetch_missing_metadata"),
 
   getSettings: () => invoke<Record<string, unknown>>("get_settings"),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),

@@ -36,6 +36,12 @@ export interface Theme {
   /** Paneles con efecto cristal */
   glass: boolean;
   animations: boolean;
+  /** Usar el color dominante de la portada como acento en la ficha */
+  gameAccent: boolean;
+  /** Reproducir el tráiler de fondo en la ficha */
+  trailers: boolean;
+  /** Disposición de la biblioteca */
+  layout: "grid" | "rows";
 }
 
 export const PRESETS: Record<PresetId, { label: string; palette: Palette; accent: string }> = {
@@ -106,6 +112,9 @@ export const DEFAULT_THEME: Theme = {
   heroDim: 62,
   glass: true,
   animations: true,
+  gameAccent: true,
+  trailers: true,
+  layout: "grid",
 };
 
 const FONTS: Record<FontChoice, string> = {
@@ -115,7 +124,7 @@ const FONTS: Record<FontChoice, string> = {
 };
 
 /** Texto legible (negro o blanco) sobre un color dado. */
-function contrastText(hex: string): string {
+export function contrastText(hex: string): string {
   const h = hex.replace("#", "");
   const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;

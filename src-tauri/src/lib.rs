@@ -4,6 +4,7 @@ mod db;
 mod error;
 mod launcher;
 mod library;
+mod metadata;
 mod models;
 mod playtime;
 mod scanners;
@@ -27,6 +28,8 @@ pub fn run() {
         // Debe ir el primero: si ya hay una instancia, le pasa el control y esta sale.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![ARG_MINIMIZED]),
@@ -43,8 +46,21 @@ pub fn run() {
                 .timeout(Duration::from_secs(30))
                 .build()?;
 
-            app.manage(AppState { db, http, art_dir, fetching: AtomicBool::new(false) });
+            app.manage(AppState {
+                db,
+                http,
+                art_dir,
+                fetching: AtomicBool::new(false),
+                fetching_meta: AtomicBool::new(false),
+            });
             tray::build(app.handle())?;
+
+            // Tareas de fondo al arrancar: colores de portada pendientes y metadatos que falten.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                artwork::backfill_colors(&handle.state::<AppState>());
+                metadata::spawn_fetch_missing(handle.clone());
+            });
 
             let minimized = std::env::args().any(|a| a == ARG_MINIMIZED);
             if !minimized {
@@ -86,6 +102,7 @@ pub fn run() {
             commands::artwork::sgdb_search,
             commands::artwork::set_sgdb_game,
             commands::artwork::refetch_missing_art,
+            commands::artwork::refetch_missing_metadata,
             commands::settings::get_settings,
             commands::settings::set_setting,
         ])

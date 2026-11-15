@@ -16,7 +16,7 @@ pub struct Db {
 }
 
 /// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 /// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
 /// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
@@ -25,6 +25,13 @@ fn migrate(conn: &Connection) -> AppResult<()> {
     if v < 1 {
         conn.execute_batch("ALTER TABLE games ADD COLUMN playtime_secs INTEGER NOT NULL DEFAULT 0;")?;
         v = 1;
+    }
+    if v < 2 {
+        conn.execute_batch(
+            "ALTER TABLE games ADD COLUMN art_color TEXT;
+             ALTER TABLE games ADD COLUMN meta_fetched INTEGER NOT NULL DEFAULT 0;",
+        )?;
+        v = 2;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -109,10 +116,37 @@ impl Db {
             }
         }
 
+        let mut meta: HashMap<String, Metadata> = HashMap::new();
+        {
+            let mut st = conn.prepare(
+                "SELECT game_id, steam_appid, description, genres, release_year, developer, publisher,
+                        trailer_url, trailer_poster FROM metadata",
+            )?;
+            let rows = st.query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    Metadata {
+                        steam_appid: r.get(1)?,
+                        description: r.get(2)?,
+                        genres: serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default(),
+                        release_year: r.get(4)?,
+                        developer: r.get(5)?,
+                        publisher: r.get(6)?,
+                        trailer_url: r.get(7)?,
+                        trailer_poster: r.get(8)?,
+                    },
+                ))
+            })?;
+            for row in rows {
+                let (id, m) = row?;
+                meta.insert(id, m);
+            }
+        }
+
         let mut st = conn.prepare(
             "SELECT id, title, custom_title, favorite, hidden, last_played, play_count, added_at,
                     preferred_source, sgdb_id, art_cover, art_hero, art_logo, art_icon, art_version,
-                    playtime_secs
+                    playtime_secs, art_color
              FROM games",
         )?;
         let rows = st.query_map([], |r| {
@@ -135,6 +169,8 @@ impl Db {
                 },
                 artwork_version: r.get(14)?,
                 playtime_secs: r.get(15)?,
+                art_color: r.get::<_, Option<String>>(16)?.filter(|c| !c.is_empty()),
+                meta: None,
                 sources: vec![],
                 collections: vec![],
             })
@@ -145,6 +181,7 @@ impl Db {
             let mut g = g?;
             g.sources = sources.remove(&g.id).unwrap_or_default();
             g.collections = colls.remove(&g.id).unwrap_or_default();
+            g.meta = meta.remove(&g.id);
             games.push(g);
         }
         Ok(games)
@@ -432,6 +469,69 @@ impl Db {
                 missing,
             })
         })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    // ---------------------------------------------------------------- metadatos y color
+
+    /// (id, título, appid de Steam si lo hay) de los juegos sin metadatos descargados.
+    pub fn metadata_jobs(&self) -> AppResult<Vec<(String, String, Option<String>)>> {
+        let conn = self.conn();
+        let mut st = conn.prepare(
+            "SELECT g.id, COALESCE(g.custom_title, g.title),
+                    (SELECT s.store_id FROM sources s WHERE s.game_id = g.id AND s.store = 'steam' LIMIT 1)
+             FROM games g WHERE g.meta_fetched = 0",
+        )?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn set_metadata(&self, id: &str, m: &Metadata) -> AppResult<()> {
+        self.conn().execute(
+            "INSERT INTO metadata (game_id, steam_appid, description, genres, release_year, developer, publisher, trailer_url, trailer_poster)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(game_id) DO UPDATE SET
+                steam_appid = excluded.steam_appid, description = excluded.description, genres = excluded.genres,
+                release_year = excluded.release_year, developer = excluded.developer, publisher = excluded.publisher,
+                trailer_url = excluded.trailer_url, trailer_poster = excluded.trailer_poster",
+            params![
+                id,
+                m.steam_appid,
+                m.description,
+                serde_json::to_string(&m.genres)?,
+                m.release_year,
+                m.developer,
+                m.publisher,
+                m.trailer_url,
+                m.trailer_poster
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn mark_meta_fetched(&self, id: &str, v: bool) -> AppResult<()> {
+        self.conn().execute("UPDATE games SET meta_fetched = ?2 WHERE id = ?1", params![id, v as i64])?;
+        Ok(())
+    }
+
+    pub fn reset_meta_fetched_for_missing(&self) -> AppResult<()> {
+        self.conn().execute(
+            "UPDATE games SET meta_fetched = 0 WHERE id NOT IN (SELECT game_id FROM metadata)",
+            [],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_art_color(&self, id: &str, color: Option<&str>) -> AppResult<()> {
+        self.conn().execute("UPDATE games SET art_color = ?2 WHERE id = ?1", params![id, color])?;
+        Ok(())
+    }
+
+    /// (id, ruta de portada) de los juegos con portada pero sin color calculado.
+    pub fn color_jobs(&self) -> AppResult<Vec<(String, String)>> {
+        let conn = self.conn();
+        let mut st = conn.prepare("SELECT id, art_cover FROM games WHERE art_cover IS NOT NULL AND art_color IS NULL")?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 

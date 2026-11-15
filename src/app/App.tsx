@@ -9,6 +9,8 @@ import { LibraryView } from "@/features/library/LibraryView";
 import { GameDetail } from "@/features/game-detail/GameDetail";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { useGamepad } from "@/lib/gamepad";
+import { checkForUpdate } from "@/lib/updater";
+import { toast } from "@/stores/toast";
 import { cycleFilter, useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { Sidebar } from "./Sidebar";
@@ -27,6 +29,10 @@ export function App() {
       await loadSettings();
       await load();
       if (useLibrary.getState().games.length === 0) scan(true);
+      if (!import.meta.env.DEV) {
+        const u = await checkForUpdate();
+        if (u.status === "available") toast.info(`Nexus ${u.update.version} disponible: instálala desde Ajustes`);
+      }
     })();
   }, [loadSettings, load, scan]);
 

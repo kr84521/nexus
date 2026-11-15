@@ -2,6 +2,7 @@
 //! Las imágenes se guardan en `<AppData>/artwork/<juego>/<tipo>-<timestamp>.<ext>` y el frontend
 //! las muestra con el protocolo `asset:` (convertFileSrc).
 
+pub mod color;
 pub mod steamgriddb;
 
 use std::fs;
@@ -102,7 +103,19 @@ fn store_bytes(state: &AppState, game_id: &str, kind: ArtKind, bytes: &[u8], ext
     fs::write(&path, bytes)?;
     let path = path.to_string_lossy().into_owned();
     state.db.set_art(game_id, kind, Some(&path))?;
+    if kind == ArtKind::Cover {
+        state.db.set_art_color(game_id, color::dominant_color(bytes).as_deref())?;
+    }
     Ok(path)
+}
+
+/// Calcula el color dominante de las portadas que aún no lo tienen (bibliotecas anteriores a esta función).
+pub fn backfill_colors(state: &AppState) {
+    for (id, cover) in state.db.color_jobs().unwrap_or_default() {
+        let color = fs::read(&cover).ok().and_then(|b| color::dominant_color(&b));
+        // Si no se puede calcular se guarda vacío para no reintentarlo en cada arranque.
+        let _ = state.db.set_art_color(&id, Some(color.as_deref().unwrap_or("")));
+    }
 }
 
 pub fn remove_game_art(state: &AppState, game_id: &str) {
@@ -137,6 +150,7 @@ pub fn spawn_fetch_missing(app: AppHandle) {
 
         state.fetching.store(false, Ordering::SeqCst);
         let _ = app.emit(EVENT_ART_DONE, ());
+        crate::metadata::spawn_fetch_missing(app.clone());
     });
 }
 

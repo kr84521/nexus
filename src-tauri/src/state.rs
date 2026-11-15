@@ -9,4 +9,5 @@ pub struct AppState {
     pub art_dir: PathBuf,
     /// Evita dos descargas de arte en paralelo.
     pub fetching: AtomicBool,
+    pub fetching_meta: AtomicBool,
 }

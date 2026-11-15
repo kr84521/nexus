@@ -9,6 +9,7 @@ import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { toast } from "@/stores/toast";
 import { FoldersSection } from "./FoldersSection";
+import { UpdateSection } from "./UpdateSection";
 
 export function SettingsView() {
   const { theme, updateTheme, resetTheme, sgdbApiKey, setApiKey } = useSettings();
@@ -108,6 +109,12 @@ export function SettingsView() {
           <Row label="Animaciones">
             <Toggle checked={theme.animations} onChange={(v) => updateTheme({ animations: v })} />
           </Row>
+          <Row label="Acento por juego" hint="La ficha usa el color dominante de la portada">
+            <Toggle checked={theme.gameAccent} onChange={(v) => updateTheme({ gameAccent: v })} />
+          </Row>
+          <Row label="Tráilers de fondo" hint="Reproduce el tráiler en silencio en la ficha del juego">
+            <Toggle checked={theme.trailers} onChange={(v) => updateTheme({ trailers: v })} />
+          </Row>
         </Section>
 
         <Section title="Biblioteca">
@@ -135,6 +142,8 @@ export function SettingsView() {
         </Section>
 
         <FoldersSection />
+
+        <UpdateSection />
 
         <Section title="Sistema">
           <Row label="Abrir al iniciar Windows" hint="Arranca escondido en la bandeja del sistema, junto al reloj">
@@ -170,6 +179,11 @@ export function SettingsView() {
             >
               steamgriddb.com <ExternalLink size={13} />
             </a>
+          </Row>
+          <Row label="Reintentar metadatos" hint="Descripción, géneros y tráiler desde la Store de Steam">
+            <Button variant="outline" size="sm" onClick={() => api.refetchMissingMetadata().catch((e) => toast.error(errorText(e)))}>
+              Reintentar
+            </Button>
           </Row>
           <Row label="Reintentar arte que falte" hint="Vuelve a buscar portadas para los juegos sin arte">
             <Button

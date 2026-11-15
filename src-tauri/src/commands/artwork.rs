@@ -72,6 +72,14 @@ pub fn set_sgdb_game(app: AppHandle, state: State<'_, AppState>, game_id: String
     state.db.get_game(&game_id)
 }
 
+/// Reintenta descargar los metadatos (descripción, géneros, tráiler) de los juegos que no los tienen.
+#[tauri::command]
+pub fn refetch_missing_metadata(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    state.db.reset_meta_fetched_for_missing()?;
+    crate::metadata::spawn_fetch_missing(app);
+    Ok(())
+}
+
 /// Reintenta descargar el arte que falte en toda la biblioteca.
 #[tauri::command]
 pub fn refetch_missing_art(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {

@@ -36,8 +36,21 @@ export interface Game {
   artwork: Artwork;
   artworkVersion: number;
   playtimeSecs: number;
+  artColor: string | null;
+  meta: Metadata | null;
   sources: GameSource[];
   collections: string[];
+}
+
+export interface Metadata {
+  steamAppid: string | null;
+  description: string | null;
+  genres: string[];
+  releaseYear: number | null;
+  developer: string | null;
+  publisher: string | null;
+  trailerUrl: string | null;
+  trailerPoster: string | null;
 }
 
 export interface Collection {
