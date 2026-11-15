@@ -15,6 +15,8 @@ export const api = {
   openInstallFolder: (id: string) => invoke<void>("open_install_folder", { id }),
   addManualGame: (title: string, exe: string) => invoke<Game>("add_manual_game", { title, exe }),
   removeGame: (id: string) => invoke<void>("remove_game", { id }),
+  mergeGames: (into: string, from: string) => invoke<Game>("merge_games", { into, from }),
+  splitSource: (sourceId: string) => invoke<Game>("split_source", { sourceId }),
 
   createCollection: (name: string) => invoke<Collection>("create_collection", { name }),
   renameCollection: (id: string, name: string) => invoke<void>("rename_collection", { id, name }),

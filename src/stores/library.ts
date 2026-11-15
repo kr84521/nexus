@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api, errorText } from "@/lib/api";
 import { displayTitle } from "@/lib/art";
+import { STORE_ORDER } from "@/lib/stores";
 import type { Collection, Game, Store } from "@/types";
 import { toast } from "./toast";
 
@@ -27,6 +28,10 @@ interface LibraryState {
   page: Page;
   selectedId: string | null;
   hoveredId: string | null;
+  /** Juego cuyo selector de arte está abierto. */
+  artTarget: string | null;
+  /** Juegos con un proceso en ejecución (seguimiento de tiempo de juego). */
+  running: Record<string, true>;
 
   load: () => Promise<void>;
   scan: (silent?: boolean) => Promise<void>;
@@ -39,6 +44,8 @@ interface LibraryState {
   select: (id: string | null) => void;
   hover: (id: string | null) => void;
   setFetchingArt: (v: boolean) => void;
+  openArt: (id: string | null) => void;
+  setRunning: (id: string, running: boolean) => void;
 
   launch: (id: string, sourceId?: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
@@ -72,6 +79,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   page: "library",
   selectedId: null,
   hoveredId: null,
+  artTarget: null,
+  running: {},
 
   load: async () => {
     try {
@@ -130,6 +139,14 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   select: (selectedId) => set({ selectedId }),
   hover: (hoveredId) => set({ hoveredId }),
   setFetchingArt: (fetchingArt) => set({ fetchingArt }),
+  openArt: (artTarget) => set({ artTarget }),
+  setRunning: (id, running) =>
+    set((s) => {
+      const next = { ...s.running };
+      if (running) next[id] = true;
+      else delete next[id];
+      return { running: next };
+    }),
 
   launch: async (id, sourceId) => {
     const g = get().games.find((x) => x.id === id);
@@ -226,10 +243,27 @@ export function selectVisible(s: LibraryState): Game[] {
       case "added":
         return b.addedAt - a.addedAt || byTitle(a, b);
       case "playCount":
-        return b.playCount - a.playCount || byTitle(a, b);
+        return b.playtimeSecs - a.playtimeSecs || b.playCount - a.playCount || byTitle(a, b);
       default:
         return byTitle(a, b);
     }
   });
   return list;
+}
+
+/** Filtros en el orden de la barra lateral; usado por LB/RB del mando. */
+export function cycleFilter(delta: 1 | -1) {
+  const s = useLibrary.getState();
+  const stores = new Set<Store>();
+  for (const g of s.games) if (!g.hidden) for (const src of g.sources) stores.add(src.store);
+  const all: Filter[] = [
+    { type: "all" },
+    { type: "favorites" },
+    { type: "recent" },
+    ...STORE_ORDER.filter((st) => stores.has(st)).map<Filter>((store) => ({ type: "store", store })),
+    ...s.collections.map<Filter>((c) => ({ type: "collection", id: c.id })),
+  ];
+  const key = JSON.stringify(s.filter);
+  const i = all.findIndex((f) => JSON.stringify(f) === key);
+  s.setFilter(all[(i + delta + all.length) % all.length]);
 }

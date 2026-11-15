@@ -5,21 +5,32 @@ mod error;
 mod launcher;
 mod library;
 mod models;
+mod playtime;
 mod scanners;
 mod state;
+mod tray;
 
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 
 use crate::db::Db;
 use crate::state::AppState;
 
+/// Argumento con el que el arranque automático abre Nexus escondido en la bandeja.
+pub const ARG_MINIMIZED: &str = "--minimized";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Debe ir el primero: si ya hay una instancia, le pasa el control y esta sale.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![ARG_MINIMIZED]),
+        ))
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
@@ -33,7 +44,23 @@ pub fn run() {
                 .build()?;
 
             app.manage(AppState { db, http, art_dir, fetching: AtomicBool::new(false) });
+            tray::build(app.handle())?;
+
+            let minimized = std::env::args().any(|a| a == ARG_MINIMIZED);
+            if !minimized {
+                if let Some(w) = app.get_webview_window("main") {
+                    w.show()?;
+                }
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" && tray::close_to_tray(window.app_handle()) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::library::get_library,
@@ -46,6 +73,8 @@ pub fn run() {
             commands::library::open_install_folder,
             commands::library::add_manual_game,
             commands::library::remove_game,
+            commands::library::merge_games,
+            commands::library::split_source,
             commands::library::create_collection,
             commands::library::rename_collection,
             commands::library::delete_collection,

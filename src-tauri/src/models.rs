@@ -107,6 +107,7 @@ pub struct Game {
     pub artwork: Artwork,
     /// Marca de tiempo del último cambio de arte (para invalidar caché en el frontend).
     pub artwork_version: i64,
+    pub playtime_secs: i64,
     pub sources: Vec<GameSource>,
     pub collections: Vec<String>,
 }

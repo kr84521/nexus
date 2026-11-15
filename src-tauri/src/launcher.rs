@@ -9,7 +9,9 @@ use crate::models::LaunchTarget;
 const DETACHED_PROCESS: u32 = 0x0000_0008;
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 
-pub fn launch(target: &LaunchTarget) -> AppResult<()> {
+/// Devuelve el PID del proceso hijo cuando se lanza un ejecutable directamente
+/// (con URIs el proceso lo crea la tienda y no lo conocemos).
+pub fn launch(target: &LaunchTarget) -> AppResult<Option<u32>> {
     match target {
         // explorer.exe resuelve cualquier protocolo registrado y también shell:AppsFolder\...
         LaunchTarget::Uri { uri } => {
@@ -17,6 +19,7 @@ pub fn launch(target: &LaunchTarget) -> AppResult<()> {
                 .arg(uri)
                 .spawn()
                 .map_err(|e| AppError::msg(format!("No se pudo abrir {uri}: {e}")))?;
+            Ok(None)
         }
         LaunchTarget::Exe { path, args, cwd } => {
             let mut cmd = Command::new(path);
@@ -24,11 +27,12 @@ pub fn launch(target: &LaunchTarget) -> AppResult<()> {
             if let Some(dir) = cwd.as_deref().filter(|d| std::path::Path::new(d).is_dir()) {
                 cmd.current_dir(dir);
             }
-            cmd.spawn()
+            let child = cmd
+                .spawn()
                 .map_err(|e| AppError::msg(format!("No se pudo ejecutar {path}: {e}")))?;
+            Ok(Some(child.id()))
         }
     }
-    Ok(())
 }
 
 pub fn open_folder(path: &str) -> AppResult<()> {

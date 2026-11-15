@@ -33,7 +33,11 @@ pub fn game_id_for(title: &str) -> String {
 
 /// Ejecuta todos los scanners (en paralelo, cada uno en su hilo) y sincroniza la BD.
 pub fn scan_all(db: &Db) -> AppResult<ScanReport> {
-    let handles: Vec<_> = scanners::all()
+    let folders: Vec<String> = db
+        .get_setting("scanFolders")?
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let handles: Vec<_> = scanners::all(folders)
         .into_iter()
         .map(|s| std::thread::spawn(move || (s.store(), s.scan())))
         .collect();

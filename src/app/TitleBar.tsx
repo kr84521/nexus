@@ -16,7 +16,7 @@ export function TitleBar() {
           Nexus
         </span>
       </div>
-      <div className="flex h-full">
+      <div className="flex h-full" data-nav="skip">
         <WinBtn onClick={() => win.minimize()} label="Minimizar">
           <Minus size={15} />
         </WinBtn>

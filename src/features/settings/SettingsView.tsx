@@ -1,5 +1,6 @@
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { Check, ExternalLink, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Row, Section, Slider, Toggle } from "@/components/ui/Field";
 import { api, errorText } from "@/lib/api";
@@ -7,12 +8,29 @@ import { ACCENTS, PRESETS, type FontChoice, type PresetId } from "@/lib/theme";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { toast } from "@/stores/toast";
+import { FoldersSection } from "./FoldersSection";
 
 export function SettingsView() {
   const { theme, updateTheme, resetTheme, sgdbApiKey, setApiKey } = useSettings();
   const setFetchingArt = useLibrary((s) => s.setFetchingArt);
   const fetchingArt = useLibrary((s) => s.fetchingArt);
   const [keyDraft, setKeyDraft] = useState(sgdbApiKey);
+  const [autostart, setAutostart] = useState<boolean | null>(null);
+  const closeToTray = useSettings((s) => s.closeToTray);
+  const setCloseToTray = useSettings((s) => s.setCloseToTray);
+
+  useEffect(() => {
+    isEnabled().then(setAutostart).catch(() => setAutostart(false));
+  }, []);
+
+  const toggleAutostart = async (v: boolean) => {
+    try {
+      await (v ? enable() : disable());
+      setAutostart(v);
+    } catch (e) {
+      toast.error(errorText(e));
+    }
+  };
 
   const choosePreset = (id: PresetId) =>
     updateTheme({ preset: id, palette: PRESETS[id].palette, accent: PRESETS[id].accent });
@@ -113,6 +131,17 @@ export function SettingsView() {
           </Row>
           <Row label="Oscurecer fondo">
             <Slider value={theme.heroDim} min={0} max={90} unit="%" onChange={(v) => updateTheme({ heroDim: v })} />
+          </Row>
+        </Section>
+
+        <FoldersSection />
+
+        <Section title="Sistema">
+          <Row label="Abrir al iniciar Windows" hint="Arranca escondido en la bandeja del sistema, junto al reloj">
+            <Toggle checked={autostart ?? false} onChange={toggleAutostart} />
+          </Row>
+          <Row label="Cerrar a la bandeja" hint="Al cerrar la ventana Nexus sigue en la bandeja; sal desde su menú">
+            <Toggle checked={closeToTray} onChange={setCloseToTray} />
           </Row>
         </Section>
 

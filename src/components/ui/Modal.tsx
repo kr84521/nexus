@@ -34,6 +34,7 @@ export function Modal({
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
+            data-modal
             className={`panel flex max-h-[88vh] w-full ${width} flex-col overflow-hidden rounded-[calc(var(--radius)+6px)] border border-line shadow-2xl`}
             initial={{ opacity: 0, scale: 0.96, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

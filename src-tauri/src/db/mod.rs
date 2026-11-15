@@ -15,6 +15,21 @@ pub struct Db {
     conn: Mutex<Connection>,
 }
 
+/// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
+const SCHEMA_VERSION: i64 = 1;
+
+/// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
+/// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
+fn migrate(conn: &Connection) -> AppResult<()> {
+    let mut v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    if v < 1 {
+        conn.execute_batch("ALTER TABLE games ADD COLUMN playtime_secs INTEGER NOT NULL DEFAULT 0;")?;
+        v = 1;
+    }
+    conn.pragma_update(None, "user_version", v)?;
+    Ok(())
+}
+
 /// Juego pendiente de descargar arte automáticamente.
 pub struct ArtJob {
     pub game_id: String,
@@ -27,7 +42,17 @@ pub struct ArtJob {
 impl Db {
     pub fn open(path: &Path) -> AppResult<Self> {
         let conn = Connection::open(path)?;
+        let fresh: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'games'",
+            [],
+            |r| r.get(0),
+        )?;
         conn.execute_batch(include_str!("schema.sql"))?;
+        if fresh == 0 {
+            conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        } else {
+            migrate(&conn)?;
+        }
         Ok(Db { conn: Mutex::new(conn) })
     }
 
@@ -86,7 +111,8 @@ impl Db {
 
         let mut st = conn.prepare(
             "SELECT id, title, custom_title, favorite, hidden, last_played, play_count, added_at,
-                    preferred_source, sgdb_id, art_cover, art_hero, art_logo, art_icon, art_version
+                    preferred_source, sgdb_id, art_cover, art_hero, art_logo, art_icon, art_version,
+                    playtime_secs
              FROM games",
         )?;
         let rows = st.query_map([], |r| {
@@ -108,6 +134,7 @@ impl Db {
                     icon: r.get(13)?,
                 },
                 artwork_version: r.get(14)?,
+                playtime_secs: r.get(15)?,
                 sources: vec![],
                 collections: vec![],
             })
@@ -198,7 +225,10 @@ impl Db {
             for row in rows {
                 let (id, store) = row?;
                 let Some(store) = Store::parse(&store) else { continue };
-                if store != Store::Manual && scanned_stores.contains(&store) && !seen_sources.contains(&id) {
+                // Los juegos añadidos a mano ("manual:<ts>") nunca se borran; los de carpetas
+                // escaneadas ("manual:dir:...") sí, igual que los de cualquier tienda.
+                let hand_added = store == Store::Manual && !id.starts_with("manual:dir:");
+                if !hand_added && scanned_stores.contains(&store) && !seen_sources.contains(&id) {
                     removed_sources.push(id);
                 }
             }
@@ -246,6 +276,60 @@ impl Db {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- fusionar / separar
+
+    /// Mueve todas las fuentes (y colecciones, tiempo de juego, favorito) de `from` a `into` y borra `from`.
+    pub fn merge_games(&self, into: &str, from: &str) -> AppResult<()> {
+        if into == from {
+            return Err(AppError::msg("No se puede fusionar un juego consigo mismo"));
+        }
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute("UPDATE sources SET game_id = ?1 WHERE game_id = ?2", params![into, from])?;
+        tx.execute("UPDATE sessions SET game_id = ?1 WHERE game_id = ?2", params![into, from])?;
+        tx.execute(
+            "INSERT OR IGNORE INTO collection_games (collection_id, game_id)
+             SELECT collection_id, ?1 FROM collection_games WHERE game_id = ?2",
+            params![into, from],
+        )?;
+        tx.execute(
+            "UPDATE games SET
+                playtime_secs = playtime_secs + (SELECT playtime_secs FROM games WHERE id = ?2),
+                play_count = play_count + (SELECT play_count FROM games WHERE id = ?2),
+                favorite = MAX(favorite, (SELECT favorite FROM games WHERE id = ?2)),
+                last_played = MAX(COALESCE(last_played, 0), COALESCE((SELECT last_played FROM games WHERE id = ?2), 0))
+             WHERE id = ?1",
+            params![into, from],
+        )?;
+        tx.execute("UPDATE games SET last_played = NULL WHERE id = ?1 AND last_played = 0", [into])?;
+        tx.execute("DELETE FROM games WHERE id = ?1", [from])?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Saca una fuente a un juego nuevo propio. Devuelve el id del juego creado.
+    pub fn split_source(&self, source_id: &str) -> AppResult<String> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let (old_game, store, title): (String, String, String) = tx.query_row(
+            "SELECT game_id, store, title FROM sources WHERE id = ?1",
+            [source_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        let n: i64 = tx.query_row("SELECT COUNT(*) FROM sources WHERE game_id = ?1", [&old_game], |r| r.get(0))?;
+        if n < 2 {
+            return Err(AppError::msg("El juego solo tiene una fuente"));
+        }
+        let new_id = format!("{}#{}", game_id_for(&title), store);
+        tx.execute(
+            "INSERT OR IGNORE INTO games (id, title, added_at) VALUES (?1, ?2, ?3)",
+            params![new_id, title, now_ms()],
+        )?;
+        tx.execute("UPDATE sources SET game_id = ?1 WHERE id = ?2", params![new_id, source_id])?;
+        tx.commit()?;
+        Ok(new_id)
+    }
+
     // ---------------------------------------------------------------- edición
 
     pub fn set_favorite(&self, id: &str, v: bool) -> AppResult<()> {
@@ -275,6 +359,21 @@ impl Db {
             "UPDATE games SET last_played = ?2, play_count = play_count + 1 WHERE id = ?1",
             params![id, now_ms()],
         )?;
+        Ok(())
+    }
+
+    pub fn add_session(&self, id: &str, started_at: i64, secs: i64) -> AppResult<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO sessions (game_id, started_at, secs) VALUES (?1, ?2, ?3)",
+            params![id, started_at, secs],
+        )?;
+        tx.execute(
+            "UPDATE games SET playtime_secs = playtime_secs + ?2 WHERE id = ?1",
+            params![id, secs],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 

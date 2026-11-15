@@ -6,11 +6,15 @@ import { toast } from "./toast";
 interface SettingsState {
   theme: Theme;
   sgdbApiKey: string;
+  closeToTray: boolean;
+  scanFolders: string[];
   loaded: boolean;
   load: () => Promise<void>;
   updateTheme: (patch: Partial<Theme>) => void;
   resetTheme: () => void;
   setApiKey: (key: string) => Promise<void>;
+  setCloseToTray: (v: boolean) => void;
+  setScanFolders: (folders: string[]) => Promise<void>;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -25,6 +29,8 @@ function persistTheme(theme: Theme) {
 export const useSettings = create<SettingsState>((set, get) => ({
   theme: DEFAULT_THEME,
   sgdbApiKey: "",
+  closeToTray: true,
+  scanFolders: [],
   loaded: false,
 
   load: async () => {
@@ -32,7 +38,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
       const s = await api.getSettings();
       const theme = normalizeTheme(s.theme);
       applyTheme(theme);
-      set({ theme, sgdbApiKey: typeof s.sgdbApiKey === "string" ? s.sgdbApiKey : "", loaded: true });
+      set({
+        theme,
+        sgdbApiKey: typeof s.sgdbApiKey === "string" ? s.sgdbApiKey : "",
+        closeToTray: s.closeToTray !== false,
+        scanFolders: Array.isArray(s.scanFolders) ? (s.scanFolders as string[]) : [],
+        loaded: true,
+      });
     } catch (e) {
       applyTheme(DEFAULT_THEME);
       set({ loaded: true });
@@ -51,6 +63,16 @@ export const useSettings = create<SettingsState>((set, get) => ({
     applyTheme(DEFAULT_THEME);
     set({ theme: DEFAULT_THEME });
     persistTheme(DEFAULT_THEME);
+  },
+
+  setCloseToTray: (v) => {
+    set({ closeToTray: v });
+    api.setSetting("closeToTray", v).catch((e) => toast.error(errorText(e)));
+  },
+
+  setScanFolders: async (scanFolders) => {
+    set({ scanFolders });
+    await api.setSetting("scanFolders", scanFolders).catch((e) => toast.error(errorText(e)));
   },
 
   setApiKey: async (key) => {

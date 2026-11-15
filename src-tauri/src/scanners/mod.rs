@@ -6,6 +6,7 @@ use crate::models::{DetectedGame, Store};
 mod battlenet;
 mod ea;
 mod epic;
+pub mod folders;
 mod gog;
 mod steam;
 mod ubisoft;
@@ -20,8 +21,10 @@ pub trait StoreScanner: Send + Sync {
     fn scan(&self) -> Result<Vec<DetectedGame>, String>;
 }
 
-pub fn all() -> Vec<Box<dyn StoreScanner>> {
+/// `folders`: carpetas elegidas por el usuario que se escanean en busca de ejecutables.
+pub fn all(folders: Vec<String>) -> Vec<Box<dyn StoreScanner>> {
     vec![
+        Box::new(folders::Folders { roots: folders }),
         Box::new(steam::Steam),
         Box::new(epic::Epic),
         Box::new(gog::Gog),

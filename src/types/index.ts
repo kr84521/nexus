@@ -35,6 +35,7 @@ export interface Game {
   sgdbId: number | null;
   artwork: Artwork;
   artworkVersion: number;
+  playtimeSecs: number;
   sources: GameSource[];
   collections: string[];
 }

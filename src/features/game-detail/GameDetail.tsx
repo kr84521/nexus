@@ -9,25 +9,27 @@ import {
   Pencil,
   Play,
   Star,
+  Timer,
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { StoreDot } from "@/app/Sidebar";
 import { Button, IconButton } from "@/components/ui/Button";
-import { artSrc, displayTitle, relativeTime } from "@/lib/art";
+import { artSrc, displayTitle, formatPlaytime, relativeTime } from "@/lib/art";
 import { api, errorText } from "@/lib/api";
 import { STORE_META } from "@/lib/stores";
 import { useLibrary } from "@/stores/library";
 import { toast } from "@/stores/toast";
 import type { Game } from "@/types";
-import { ArtworkPicker } from "@/features/artwork/ArtworkPicker";
 import { FallbackCover } from "@/features/library/GameCard";
+import { SourcesPanel } from "./SourcesPanel";
 
 export function GameDetail({ game }: { game: Game }) {
-  const { select, launch, toggleFavorite, toggleHidden, removeGame, upsert, collections, toggleInCollection } =
+  const { select, launch, toggleFavorite, toggleHidden, removeGame, upsert, collections, toggleInCollection, openArt } =
     useLibrary();
-  const [artOpen, setArtOpen] = useState(false);
+  const artOpen = useLibrary((s) => s.artTarget !== null);
+  const running = useLibrary((s) => !!s.running[game.id]);
   const [menu, setMenu] = useState<"sources" | "collections" | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -60,6 +62,7 @@ export function GameDetail({ game }: { game: Game }) {
 
   return (
     <motion.div
+      data-game-id={game.id}
       className="relative flex h-full flex-col overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -87,7 +90,7 @@ export function GameDetail({ game }: { game: Game }) {
       <div className="relative z-10 mt-auto flex items-end gap-8 px-9 pb-9">
         {/* Portada */}
         <button
-          onClick={() => setArtOpen(true)}
+          onClick={() => openArt(game.id)}
           className="focus-ring group relative aspect-[2/3] w-[220px] shrink-0 overflow-hidden rounded-card shadow-2xl shadow-black/60 ring-1 ring-fg/10"
           title="Cambiar arte"
         >
@@ -126,22 +129,28 @@ export function GameDetail({ game }: { game: Game }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-fg/75">
-            <span className="flex items-center gap-1.5">
-              <Clock size={14} /> {relativeTime(game.lastPlayed)}
-            </span>
+            {running ? (
+              <span className="flex items-center gap-1.5 font-medium text-emerald-300">
+                <span className="size-2 animate-pulse rounded-full bg-emerald-400" /> Jugando ahora
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Clock size={14} /> {relativeTime(game.lastPlayed)}
+              </span>
+            )}
+            {game.playtimeSecs > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Timer size={14} /> {formatPlaytime(game.playtimeSecs)}
+              </span>
+            )}
             {game.playCount > 0 && <span>{game.playCount} {game.playCount === 1 ? "sesión" : "sesiones"}</span>}
-            <span className="flex items-center gap-2">
-              {game.sources.map((s) => (
-                <span key={s.id} className="flex items-center gap-1.5">
-                  <StoreDot store={s.store} size={8} /> {STORE_META[s.store].label}
-                </span>
-              ))}
-            </span>
           </div>
+
+          <SourcesPanel game={game} />
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-card shadow-lg shadow-accent/25">
-              <Button variant="primary" size="lg" className="rounded-none shadow-none" onClick={() => launch(game.id)}>
+              <Button variant="primary" size="lg" className="rounded-none shadow-none" onClick={() => launch(game.id)} autoFocus>
                 <Play size={18} fill="currentColor" /> Jugar
               </Button>
               {game.sources.length > 1 && (
@@ -214,7 +223,7 @@ export function GameDetail({ game }: { game: Game }) {
             >
               <Pencil size={17} />
             </IconButton>
-            <IconButton title="Cambiar arte" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setArtOpen(true)}>
+            <IconButton title="Cambiar arte" className="size-12 bg-bg/40 backdrop-blur" onClick={() => openArt(game.id)}>
               <ImageIcon size={18} />
             </IconButton>
             {installPath && (
@@ -246,8 +255,6 @@ export function GameDetail({ game }: { game: Game }) {
           </div>
         </div>
       </div>
-
-      <ArtworkPicker game={game} open={artOpen} onClose={() => setArtOpen(false)} />
     </motion.div>
   );
 }

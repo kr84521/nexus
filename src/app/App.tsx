@@ -1,20 +1,25 @@
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { GamepadHints } from "@/components/GamepadHints";
 import { Toasts } from "@/components/Toasts";
+import { ArtworkPicker } from "@/features/artwork/ArtworkPicker";
 import { ArtworkBackdrop } from "@/features/library/ArtworkBackdrop";
 import { LibraryView } from "@/features/library/LibraryView";
 import { GameDetail } from "@/features/game-detail/GameDetail";
 import { SettingsView } from "@/features/settings/SettingsView";
-import { useLibrary } from "@/stores/library";
+import { useGamepad } from "@/lib/gamepad";
+import { cycleFilter, useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 
 export function App() {
-  const { page, selectedId, games, loaded, load, scan, refreshGame, setFetchingArt } = useLibrary();
+  const { page, selectedId, artTarget, games, loaded, load, scan, refreshGame, setFetchingArt, setRunning, openArt } =
+    useLibrary();
   const loadSettings = useSettings((s) => s.load);
   const selected = games.find((g) => g.id === selectedId) ?? null;
+  const artGame = games.find((g) => g.id === artTarget) ?? null;
 
   // Arranque: ajustes + biblioteca; si está vacía, escanea automáticamente.
   useEffect(() => {
@@ -25,16 +30,36 @@ export function App() {
     })();
   }, [loadSettings, load, scan]);
 
-  // Eventos del backend: arte descargado en segundo plano.
+  // Eventos del backend: arte en segundo plano, juegos en ejecución, bandeja.
   useEffect(() => {
     const unlisten = [
       listen<string>("artwork-updated", (e) => refreshGame(e.payload)),
       listen("artwork-done", () => setFetchingArt(false)),
+      listen<{ gameId: string; running: boolean }>("game-running", (e) => setRunning(e.payload.gameId, e.payload.running)),
+      listen("scan-requested", () => scan()),
     ];
     return () => {
       unlisten.forEach((p) => p.then((f) => f()));
     };
-  }, [refreshGame, setFetchingArt]);
+  }, [refreshGame, setFetchingArt, setRunning, scan]);
+
+  // Mando.
+  const gamepadActions = useMemo(
+    () => ({
+      back: () => {
+        const s = useLibrary.getState();
+        if (s.artTarget) s.openArt(null);
+        else if (s.selectedId) s.select(null);
+        else if (s.page !== "library") s.setPage("library");
+        else window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      },
+      play: (id: string) => useLibrary.getState().launch(id),
+      favorite: (id: string) => useLibrary.getState().toggleFavorite(id),
+      cycleFilter,
+    }),
+    [],
+  );
+  const gamepad = useGamepad(gamepadActions);
 
   // Atajos globales.
   useEffect(() => {
@@ -73,6 +98,8 @@ export function App() {
           </AnimatePresence>
         </main>
       </div>
+      {artGame && <ArtworkPicker game={artGame} open onClose={() => openArt(null)} />}
+      {gamepad && <GamepadHints />}
       <Toasts />
     </div>
   );

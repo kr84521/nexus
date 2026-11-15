@@ -19,6 +19,15 @@ export function titleHue(title: string): number {
   return h;
 }
 
+export function formatPlaytime(secs: number): string {
+  if (secs < 60) return "Menos de 1 min";
+  const min = Math.round(secs / 60);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
 export function relativeTime(ms: number | null): string {
   if (!ms) return "Nunca";
   const diff = Date.now() - ms;
