@@ -3,6 +3,7 @@ mod backup;
 mod commands;
 mod db;
 mod error;
+mod extras;
 mod launcher;
 mod library;
 mod metadata;
@@ -120,6 +121,10 @@ pub fn run() {
             commands::saves::backup_saves,
             commands::saves::restore_saves,
             commands::saves::open_path,
+            commands::extras::game_screenshots,
+            commands::extras::game_news,
+            commands::extras::game_achievements,
+            commands::extras::detected_steam_id,
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Nexus");

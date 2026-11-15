@@ -12,7 +12,7 @@ pub mod roms;
 mod steam;
 mod ubisoft;
 pub mod util;
-mod vdf;
+pub mod vdf;
 mod xbox;
 
 pub use steam::steam_root;

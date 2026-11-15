@@ -89,6 +89,38 @@ export interface SaveInfo {
   destination: string;
 }
 
+export interface Screenshot {
+  path: string;
+  modified: number;
+  source: string;
+}
+
+export interface NewsItem {
+  title: string;
+  url: string;
+  feed: string;
+  date: number;
+  excerpt: string;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  iconGray: string;
+  hidden: boolean;
+  unlocked: boolean;
+  unlockTime: number | null;
+  percent: number | null;
+}
+
+export interface AchievementsReport {
+  total: number;
+  unlocked: number;
+  items: Achievement[];
+}
+
 export interface Collection {
   id: string;
   name: string;

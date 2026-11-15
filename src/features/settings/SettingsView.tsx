@@ -29,6 +29,16 @@ export function SettingsView() {
   const setSavesDir = useSettings((s) => s.setSavesDir);
   const autoBackupSaves = useSettings((s) => s.autoBackupSaves);
   const setAutoBackupSaves = useSettings((s) => s.setAutoBackupSaves);
+  const steamWebApiKey = useSettings((s) => s.steamWebApiKey);
+  const setSteamWebApiKey = useSettings((s) => s.setSteamWebApiKey);
+  const steamId = useSettings((s) => s.steamId);
+  const setSteamId = useSettings((s) => s.setSteamId);
+  const [steamKeyDraft, setSteamKeyDraft] = useState(steamWebApiKey);
+  const [steamIdDraft, setSteamIdDraft] = useState(steamId);
+  const [detectedId, setDetectedId] = useState<string | null>(null);
+  useEffect(() => {
+    api.detectedSteamId().then(setDetectedId).catch(() => {});
+  }, []);
 
   useEffect(() => {
     isEnabled().then(setAutostart).catch(() => setAutostart(false));
@@ -156,6 +166,26 @@ export function SettingsView() {
         <FoldersSection />
 
         <EmulatorsSection />
+
+        <Section title="Logros · Steam Web API">
+          <Row label="Clave de la Web API" hint="Necesaria para ver tus logros. Tu perfil debe tener «Detalles del juego» en público">
+            <Input type="password" value={steamKeyDraft} onChange={(e) => setSteamKeyDraft(e.target.value)} placeholder="Pega tu clave" className="w-64" />
+            <Button variant="primary" size="sm" onClick={() => setSteamWebApiKey(steamKeyDraft)} disabled={steamKeyDraft.trim() === steamWebApiKey}>
+              Guardar
+            </Button>
+          </Row>
+          <Row label="Obtener una clave" hint="Gratis; en «Nombre de dominio» puedes poner localhost">
+            <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-accent hover:underline">
+              steamcommunity.com/dev/apikey <ExternalLink size={13} />
+            </a>
+          </Row>
+          <Row label="SteamID64" hint={detectedId ? `Detectado del cliente de Steam: ${detectedId}. Déjalo vacío para usarlo` : "No se pudo detectar; escríbelo (número de 17 cifras)"}>
+            <Input value={steamIdDraft} onChange={(e) => setSteamIdDraft(e.target.value)} placeholder={detectedId ?? "7656119…"} className="w-56 font-mono text-xs" />
+            <Button variant="outline" size="sm" onClick={() => setSteamId(steamIdDraft)} disabled={steamIdDraft.trim() === steamId}>
+              Aplicar
+            </Button>
+          </Row>
+        </Section>
 
         <Section title="Partidas guardadas">
           <Row label="Copia automática al salir" hint="Al terminar cada sesión se guarda una copia de las partidas (se conservan 5 por juego)">

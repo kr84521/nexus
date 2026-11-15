@@ -16,8 +16,9 @@ npm run app:build    # instalador NSIS en src-tauri/target/release/bundle/
 npm run typecheck    # tsc, solo tipos
 npm run build        # tsc + vite build → dist/ (tauri build lo invoca solo)
 cd src-tauri && cargo build         # solo backend
-cd src-tauri && cargo test          # tests unitarios de Rust (parser VDF, normalización de títulos, args CLI)
+cd src-tauri && cargo test          # tests unitarios de Rust (parsers, migraciones de BD, fusionar/separar, rachas…)
 cd src-tauri && cargo test vdf      # un solo test/módulo por nombre
+NEXUS_MANIFEST=<ruta manifest.yaml> cargo test real_manifest -- --ignored --nocapture   # parser de partidas contra el manifiesto real
 cd src-tauri && cargo clippy
 ```
 
@@ -37,15 +38,15 @@ Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierd
 2. `library::scan_all` ejecuta cada `StoreScanner` en su propio hilo y recoge `DetectedGame`s.
 3. `Db::apply_scan` sincroniza con SQLite: inserta/actualiza `sources`, agrupa en `games` por título normalizado (`library::game_id_for`), y **solo elimina fuentes de tiendas cuyo scanner terminó sin error** (si un scanner falla no se borra su biblioteca).
 4. `artwork::spawn_fetch_missing` descarga en segundo plano el arte que falte (SteamGridDB → fallback CDN de Steam) y emite eventos `artwork-updated` (por juego) y `artwork-done`; el frontend recarga el juego al recibirlos. Al terminar encadena `metadata::spawn_fetch_missing` (Store de Steam: descripción, géneros, año, desarrollador, tráiler), que reutiliza `artwork-updated`.
-5. `launch_game` lanza el juego y arranca `playtime::track` en un hilo: espera a que aparezca un proceso cuyo exe esté bajo la carpeta de instalación (o el PID hijo), emite `game-running` y al cerrarse registra la sesión en `sessions` y suma `playtime_secs`.
+5. `launch_game` aplica las `launch_options` del juego (argumentos, comando previo, admin), lanza y arranca `playtime::track` en un hilo: espera a que aparezca un proceso cuyo exe esté bajo la carpeta de instalación (o el PID hijo), emite `game-running` y al cerrarse registra la sesión en `sessions`, suma `playtime_secs`, emite `session-ended`, ejecuta el comando posterior, cierra la tienda si se pidió y hace copia de partidas si `autoBackupSaves` está activo.
 
 ### Modelo de datos (clave para entender todo)
 
 - **`games`**: un juego lógico. `id = "g:<título normalizado>"` (o `"m:<ts>"` para manuales). Guarda favorito, oculto, título personalizado, arte elegido, `sgdb_id`, `art_fetched`.
 - **`sources`**: una instalación concreta en una tienda. `id = "<store>:<store_id>"`. Un juego puede tener varias (Steam + Epic). Cada fuente guarda su `LaunchTarget` como JSON.
 - `LaunchTarget` es `Uri` (steam://, uplay://, shell:AppsFolder\...) o `Exe` (ruta + args + cwd). `launcher.rs` abre URIs con `explorer.exe` y ejecutables con `Command`.
-- **`metadata`** (1:1 con games) y **`sessions`** (tiempo de juego). `games.art_color` es el color dominante de la portada (calculado con `artwork::color` al guardarla; `""` = no se pudo calcular).
-- Fuentes manuales: `manual:<ts>` (añadido a mano, nunca se borra al escanear) vs `manual:dir:<ruta>` (scanner de carpetas, se borra si desaparece).
+- **`metadata`** (1:1 con games), **`launch_options`** (1:1) y **`sessions`** (tiempo de juego; `stats.rs` las agrega para la página Actividad). `games.art_color` es el color dominante de la portada (calculado con `artwork::color` al guardarla; `""` = no se pudo calcular).
+- Fuentes manuales: `manual:<ts>` (añadido a mano, nunca se borra al escanear) vs `manual:dir:<ruta>` (scanner de carpetas, se borra si desaparece). `Store::Rom` son ROMs del scanner `scanners/roms.rs` (ajuste `emulators`, `{rom}` en los argumentos); su `install_path` es la carpeta del emulador para que el seguimiento de tiempo detecte su proceso.
 - Fusionar (`merge_games`) mueve fuentes/sesiones/colecciones a otro juego; separar (`split_source`) crea `g:<título>#<store>`. Los rescaneos respetan ambos porque `apply_scan` busca primero el `game_id` actual de cada fuente.
 - `models.rs` ⇄ `src/types/index.ts` son espejo: cambiar uno obliga a cambiar el otro. Serde usa `camelCase` en la frontera.
 
@@ -56,6 +57,10 @@ Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierd
 - `db/` — `Db` envuelve `Mutex<Connection>`; nunca mantener el lock a través de un `.await`. Esquema en `schema.sql` (`IF NOT EXISTS`, define el estado final). Cambios a tablas existentes van en `migrate()` con `PRAGMA user_version` (una entrada por versión; subir `SCHEMA_VERSION`). Una BD nueva salta directamente a `SCHEMA_VERSION`.
 - `playtime.rs` — seguimiento de procesos con `sysinfo`. `tray.rs` — icono de bandeja (abrir/escanear/salir), `close_to_tray` lee el ajuste `closeToTray`. La ventana nace oculta (`visible: false`) y `setup` la muestra salvo con `--minimized` (lo pasa el arranque automático).
 - `metadata/` — cliente de la Store de Steam (`storesearch` + `appdetails`, sin clave). Para juegos no-Steam solo acepta el resultado si el título normalizado coincide.
+- `saves/` — copias de partidas. `manifest.rs` descarga y parsea el manifiesto de Ludusavi (18 MB YAML, caché en AppData una semana, ~1 s en release; se parsea una vez por ejecución y se guarda en un `static`); solo entradas Windows con tag `save`. Sustituye `<winAppData>`, `<base>`… y expande globs. Las copias van a `savesDir` (ajuste) o `AppData/saves`, 5 por juego, con `backup.json` que guarda las rutas originales para restaurar. Los comandos corren en `spawn_blocking` porque la descarga usa `reqwest::blocking`.
+- `extras/` — capturas (carpeta de Steam `userdata/*/760/remote/<appid>/screenshots` y Vídeos/Capturas de la Game Bar), noticias (API pública de Steam) y logros (Web API con clave `steamWebApiKey` + `steamId` detectado de `loginusers.vdf`). `steam_appid()` usa la fuente Steam o `metadata.steam_appid`, así funcionan en juegos de otras tiendas que existen en Steam.
+- `backup.rs` — exportar/importar la biblioteca a una carpeta (`nexus-library.json` + `artwork/`); la importación hace upsert por id sin borrar nada.
+- `stats.rs` — agregados de `sessions` (semana/mes/total, mapa anual, top, racha con aritmética de fechas propia).
 - `artwork/` — descarga/importa imágenes, borra la versión anterior del mismo tipo, actualiza `art_version` (cache-busting en el frontend). `steamgriddb.rs` es el cliente API v2.
 - `error.rs` — `AppError` serializa como string; `AppResult<T>` es el tipo de retorno de todos los comandos.
 - `state.rs` — `AppState` (db, cliente HTTP, carpeta de arte, flag `fetching`) gestionado por Tauri.
@@ -66,6 +71,10 @@ Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierd
 - `stores/library.ts` — estado Zustand: juegos, colecciones, filtro, búsqueda, orden, página, selección. `selectVisible()` aplica filtro+búsqueda+orden. Mutaciones usan `mutate()` que llama al comando y hace `upsert` del resultado.
 - `stores/settings.ts` + `lib/theme.ts` — el tema es un objeto `Theme` que `applyTheme` vuelca en variables CSS de `:root` (`--bg`, `--accent`, `--cover-w`, …). Tailwind las expone como `bg-bg`, `text-fg`, `bg-accent`, `border-line`, `rounded-card`. Añadir una opción de tema = campo en `Theme`, línea en `applyTheme`, control en `SettingsView`.
 - `features/` — `library/` (cuadrícula `LibraryView`, vista destacados `RowsView`, tarjeta, menú contextual `useGameMenu`, fondo dinámico, añadir manual), `game-detail/` (héroe/tráiler + logo + portada + acciones, `SourcesPanel` para fusionar/separar), `artwork/` (selector de alternativas; se abre globalmente con `useLibrary().openArt(id)`), `settings/`.
+- `lib/hotkey.ts` — atajo global (plugin global-shortcut) que muestra la ventana y abre la `CommandPalette` (Ctrl+K). Se registra desde `settings.load()`.
+- `lib/useVirtualGrid.ts` — virtualización de la cuadrícula: replica el cálculo de columnas de `auto-fill minmax(var(--cover-w), 1fr)`; el contenedor de scroll lleva `ref` y la cuadrícula `data-virtual-grid`.
+- Modo TV (`tvMode` en el store, F11 / Select del mando): pantalla completa, sin `Sidebar`/`TitleBar`, `TvBar` con pestañas; `html[data-tv="true"]` y `applyTheme` fuerzan portadas ≥ 240px.
+- Paneles de la ficha (`game-detail/`): `LaunchOptionsModal`, `SavesPanel`, `ExtrasPanels` (capturas/novedades/logros). Las capturas se sirven con `asset:` fuera de AppData, por eso el scope del protocolo es `**`.
 - `lib/gamepad.ts` — navegación espacial con mando sobre elementos enfocables; las tarjetas llevan `data-game-id`, los modales `data-modal` (limitan la navegación) y `data-nav="skip"` excluye elementos. Con mando conectado `html[data-gamepad="true"]` fuerza el anillo de foco.
 - Acento por juego: `GameDetail` sobrescribe `--accent`/`--accent-fg` en su contenedor con `game.artColor`, así todo `bg-accent` dentro cambia sin tocar componentes.
 - Tráileres: Steam los sirve en HLS; `TrailerVideo` usa `hls.js`. La CSP permite `connect-src https://*.steamstatic.com` y `media-src https: blob:`.
@@ -74,6 +83,6 @@ Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierd
 
 ## Convenciones
 
-- Ajustes se guardan como JSON libre en la tabla `settings` (`theme`, `sgdbApiKey`); el frontend define la forma y normaliza con valores por defecto (`normalizeTheme`).
+- Ajustes se guardan como JSON libre en la tabla `settings` (`theme`, `sgdbApiKey`, `closeToTray`, `scanFolders`, `emulators`, `quickSearch`, `savesDir`, `autoBackupSaves`, `steamWebApiKey`, `steamId`); el frontend define la forma y normaliza con valores por defecto. El backend lee algunos directamente (`closeToTray`, `scanFolders`, `emulators`, `autoBackupSaves`, `savesDir`, claves de Steam).
 - Los scanners devuelven `Ok(vec![])` si la tienda no está instalada; `Err` solo ante fallos reales.
 - No añadir dependencias de Tauri plugins sin registrar también su permiso en `capabilities/default.json`.

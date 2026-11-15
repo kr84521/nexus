@@ -23,6 +23,8 @@ interface SettingsState {
   emulators: EmulatorConfig[];
   savesDir: string;
   autoBackupSaves: boolean;
+  steamWebApiKey: string;
+  steamId: string;
   loaded: boolean;
   load: () => Promise<void>;
   updateTheme: (patch: Partial<Theme>) => void;
@@ -34,6 +36,8 @@ interface SettingsState {
   setEmulators: (list: EmulatorConfig[]) => Promise<void>;
   setSavesDir: (dir: string) => Promise<void>;
   setAutoBackupSaves: (v: boolean) => Promise<void>;
+  setSteamWebApiKey: (k: string) => Promise<void>;
+  setSteamId: (id: string) => Promise<void>;
 }
 
 function normalizeQuickSearch(raw: unknown): { enabled: boolean; shortcut: string } {
@@ -59,6 +63,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   emulators: [],
   savesDir: "",
   autoBackupSaves: false,
+  steamWebApiKey: "",
+  steamId: "",
   loaded: false,
 
   load: async () => {
@@ -75,6 +81,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
         emulators: Array.isArray(s.emulators) ? (s.emulators as EmulatorConfig[]) : [],
         savesDir: typeof s.savesDir === "string" ? s.savesDir : "",
         autoBackupSaves: s.autoBackupSaves === true,
+        steamWebApiKey: typeof s.steamWebApiKey === "string" ? s.steamWebApiKey : "",
+        steamId: typeof s.steamId === "string" ? s.steamId : "",
         loaded: true,
       });
       const q = normalizeQuickSearch(s.quickSearch);
@@ -112,6 +120,15 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setSavesDir: async (savesDir) => {
     set({ savesDir });
     await api.setSetting("savesDir", savesDir).catch((e) => toast.error(errorText(e)));
+  },
+  setSteamWebApiKey: async (steamWebApiKey) => {
+    set({ steamWebApiKey: steamWebApiKey.trim() });
+    await api.setSetting("steamWebApiKey", steamWebApiKey.trim()).catch((e) => toast.error(errorText(e)));
+    toast.success(steamWebApiKey.trim() ? "Clave de Steam guardada" : "Clave de Steam eliminada");
+  },
+  setSteamId: async (steamId) => {
+    set({ steamId: steamId.trim() });
+    await api.setSetting("steamId", steamId.trim()).catch((e) => toast.error(errorText(e)));
   },
   setAutoBackupSaves: async (autoBackupSaves) => {
     set({ autoBackupSaves });

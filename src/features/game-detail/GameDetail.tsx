@@ -1,6 +1,9 @@
 import {
   ArrowLeft,
+  Camera,
   ChevronDown,
+  Newspaper,
+  Trophy,
   Clock,
   EyeOff,
   FolderOpen,
@@ -27,6 +30,7 @@ import { contrastText } from "@/lib/theme";
 import { toast } from "@/stores/toast";
 import type { Game } from "@/types";
 import { FallbackCover } from "@/features/library/GameCard";
+import { AchievementsPanel, NewsPanel, ScreenshotsPanel } from "./ExtrasPanels";
 import { SavesPanel } from "./SavesPanel";
 import { SourcesPanel } from "./SourcesPanel";
 import { TrailerVideo } from "./TrailerVideo";
@@ -50,6 +54,8 @@ export function GameDetail({ game }: { game: Game }) {
   const trailers = useSettings((s) => s.theme.trailers);
   const [showFull, setShowFull] = useState(false);
   const [savesOpen, setSavesOpen] = useState(false);
+  const [panel, setPanel] = useState<"shots" | "news" | "achievements" | null>(null);
+  const onSteam = game.sources.some((s) => s.store === "steam") || !!game.meta?.steamAppid;
   const accentStyle: CSSProperties | undefined =
     gameAccent && game.artColor
       ? ({ "--accent": game.artColor, "--accent-fg": contrastText(game.artColor) } as CSSProperties)
@@ -69,11 +75,11 @@ export function GameDetail({ game }: { game: Game }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !artOpen && !editing && !savesOpen) select(null);
+      if (e.key === "Escape" && !artOpen && !editing && !savesOpen && !panel) select(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [select, artOpen, editing, savesOpen]);
+  }, [select, artOpen, editing, savesOpen, panel]);
 
   const saveTitle = async () => {
     setEditing(false);
@@ -281,6 +287,19 @@ export function GameDetail({ game }: { game: Game }) {
             <IconButton title="Partidas guardadas" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setSavesOpen(true)}>
               <Save size={18} />
             </IconButton>
+            <IconButton title="Capturas" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setPanel("shots")}>
+              <Camera size={18} />
+            </IconButton>
+            {onSteam && (
+              <>
+                <IconButton title="Novedades" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setPanel("news")}>
+                  <Newspaper size={18} />
+                </IconButton>
+                <IconButton title="Logros" className="size-12 bg-bg/40 backdrop-blur" onClick={() => setPanel("achievements")}>
+                  <Trophy size={18} />
+                </IconButton>
+              </>
+            )}
             <IconButton
               title="Opciones de lanzamiento"
               className="size-12 bg-bg/40 backdrop-blur"
@@ -319,6 +338,9 @@ export function GameDetail({ game }: { game: Game }) {
         </div>
       </div>
       <SavesPanel game={game} open={savesOpen} onClose={() => setSavesOpen(false)} />
+      <ScreenshotsPanel game={game} open={panel === "shots"} onClose={() => setPanel(null)} />
+      <NewsPanel game={game} open={panel === "news"} onClose={() => setPanel(null)} />
+      <AchievementsPanel game={game} open={panel === "achievements"} onClose={() => setPanel(null)} />
     </motion.div>
   );
 }

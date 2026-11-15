@@ -1,7 +1,21 @@
 // Wrappers tipados de los comandos de Tauri. El nombre de cada función = nombre del comando en Rust.
 // Tauri convierte los argumentos camelCase de JS a snake_case en Rust automáticamente.
 import { invoke } from "@tauri-apps/api/core";
-import type { ArtKind, ArtOption, Collection, Game, LaunchOptions, SaveBackup, SaveInfo, ScanReport, SgdbGame, StatsReport } from "@/types";
+import type {
+  AchievementsReport,
+  ArtKind,
+  ArtOption,
+  Collection,
+  Game,
+  LaunchOptions,
+  NewsItem,
+  SaveBackup,
+  SaveInfo,
+  ScanReport,
+  Screenshot,
+  SgdbGame,
+  StatsReport,
+} from "@/types";
 
 export const api = {
   getLibrary: () => invoke<{ games: Game[]; collections: Collection[] }>("get_library"),
@@ -46,6 +60,10 @@ export const api = {
   backupSaves: (gameId: string) => invoke<SaveBackup>("backup_saves", { gameId }),
   restoreSaves: (gameId: string, name: string) => invoke<number>("restore_saves", { gameId, name }),
   openPath: (path: string) => invoke<void>("open_path", { path }),
+  gameScreenshots: (gameId: string) => invoke<Screenshot[]>("game_screenshots", { gameId }),
+  gameNews: (gameId: string) => invoke<NewsItem[]>("game_news", { gameId }),
+  gameAchievements: (gameId: string) => invoke<AchievementsReport>("game_achievements", { gameId }),
+  detectedSteamId: () => invoke<string | null>("detected_steam_id"),
   importLibrary: (dir: string) =>
     invoke<{ games: number; collections: number; sessions: number; artworkFiles: number }>("import_library", { dir }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
