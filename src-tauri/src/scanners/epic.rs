@@ -24,6 +24,15 @@ struct Manifest {
     b_is_incomplete_install: bool,
 }
 
+impl Manifest {
+    /// Un DLC apunta a otro juego en MainGameAppName. Epic deja el campo vacío ("") en los juegos.
+    fn is_dlc(&self) -> bool {
+        self.main_game_app_name
+            .as_deref()
+            .is_some_and(|main| !main.is_empty() && main != self.app_name)
+    }
+}
+
 fn manifests_dir() -> PathBuf {
     // La ruta puede estar redirigida en el registro; si no, la ubicación por defecto.
     open_key(HKLM, r"SOFTWARE\Epic Games\EpicGamesLauncher")
@@ -49,7 +58,7 @@ impl StoreScanner for Epic {
             let Ok(text) = fs::read_to_string(&path) else { continue };
             let Ok(m) = serde_json::from_str::<Manifest>(&text) else { continue };
 
-            let is_dlc = m.main_game_app_name.as_deref().is_some_and(|main| main != m.app_name);
+            let is_dlc = m.is_dlc();
             let is_game = m.app_categories.is_empty() || m.app_categories.iter().any(|c| c == "games");
             if is_dlc || !is_game || m.b_is_incomplete_install {
                 continue;
@@ -70,5 +79,24 @@ impl StoreScanner for Epic {
             });
         }
         Ok(games)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(json: &str) -> Manifest {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn empty_main_game_is_not_dlc() {
+        let game = parse(r#"{"DisplayName":"Fortnite","AppName":"Fortnite","MainGameAppName":"","AppCategories":["games"]}"#);
+        assert!(!game.is_dlc());
+        let dlc = parse(r#"{"DisplayName":"REDmod","AppName":"abc","MainGameAppName":"Ginger","AppCategories":["digitalextras"]}"#);
+        assert!(dlc.is_dlc());
+        let missing = parse(r#"{"DisplayName":"X","AppName":"x"}"#);
+        assert!(!missing.is_dlc());
     }
 }
