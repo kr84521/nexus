@@ -16,7 +16,7 @@ pub struct Db {
 }
 
 /// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
 
 /// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
 /// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
@@ -46,6 +46,10 @@ fn migrate(conn: &Connection) -> AppResult<()> {
             conn.execute_batch("UPDATE games SET meta_fetched = 0;")?;
         }
         v = 4;
+    }
+    if v < 5 {
+        add_column(conn, "sources", "size_bytes", "INTEGER")?;
+        v = 5;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -108,7 +112,7 @@ impl Db {
         let mut sources: HashMap<String, Vec<GameSource>> = HashMap::new();
         {
             let mut st = conn.prepare(
-                "SELECT id, game_id, store, store_id, title, install_path, launch FROM sources",
+                "SELECT id, game_id, store, store_id, title, install_path, launch, size_bytes FROM sources",
             )?;
             let rows = st.query_map([], |r| {
                 Ok((
@@ -119,10 +123,11 @@ impl Db {
                     r.get::<_, String>(4)?,
                     r.get::<_, Option<String>>(5)?,
                     r.get::<_, String>(6)?,
+                    r.get::<_, Option<i64>>(7)?,
                 ))
             })?;
             for row in rows {
-                let (id, game_id, store, store_id, title, install_path, launch) = row?;
+                let (id, game_id, store, store_id, title, install_path, launch, size_bytes) = row?;
                 let (Some(store), Ok(launch)) =
                     (Store::parse(&store), serde_json::from_str::<LaunchTarget>(&launch))
                 else {
@@ -135,6 +140,7 @@ impl Db {
                     title,
                     install_path,
                     launch,
+                    size_bytes,
                 });
             }
         }
@@ -564,6 +570,19 @@ impl Db {
 
     pub fn set_notes(&self, id: &str, notes: &str) -> AppResult<()> {
         self.conn().execute("UPDATE games SET notes = ?2 WHERE id = ?1", params![id, notes])?;
+        Ok(())
+    }
+
+    /// (id de fuente, carpeta) de todas las fuentes con carpeta de instalación.
+    pub fn source_paths(&self) -> AppResult<Vec<(String, String)>> {
+        let conn = self.conn();
+        let mut st = conn.prepare("SELECT id, install_path FROM sources WHERE install_path IS NOT NULL")?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn set_source_size(&self, id: &str, bytes: i64) -> AppResult<()> {
+        self.conn().execute("UPDATE sources SET size_bytes = ?2 WHERE id = ?1", params![id, bytes])?;
         Ok(())
     }
 

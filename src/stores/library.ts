@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api, errorText } from "@/lib/api";
-import { displayTitle } from "@/lib/art";
+import { displayTitle, gameSize } from "@/lib/art";
 import { STORE_ORDER } from "@/lib/stores";
 import type { Collection, Game, GameStatus, Store } from "@/types";
 import { toast } from "./toast";
@@ -15,7 +15,7 @@ export type Filter =
   | { type: "genre"; genre: string }
   | { type: "status"; status: GameStatus };
 
-export type SortKey = "title" | "lastPlayed" | "added" | "playCount" | "rating";
+export type SortKey = "title" | "lastPlayed" | "added" | "playCount" | "rating" | "size";
 export type Page = "library" | "settings" | "stats" | "owned";
 
 interface LibraryState {
@@ -268,6 +268,8 @@ export function selectVisible(s: LibraryState): Game[] {
         return b.playtimeSecs - a.playtimeSecs || b.playCount - a.playCount || byTitle(a, b);
       case "rating":
         return b.rating - a.rating || byTitle(a, b);
+      case "size":
+        return gameSize(b) - gameSize(a) || byTitle(a, b);
       default:
         return byTitle(a, b);
     }

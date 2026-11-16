@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS sources (
     store_id     TEXT NOT NULL,
     title        TEXT NOT NULL,
     install_path TEXT,
-    launch       TEXT NOT NULL               -- JSON de LaunchTarget
+    launch       TEXT NOT NULL,              -- JSON de LaunchTarget
+    size_bytes   INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_sources_game ON sources(game_id);
 

@@ -1,5 +1,7 @@
-import { ArrowDownAZ, Gamepad2, LayoutGrid, Rows3, Search, Tag, Tv } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { ArrowDownAZ, Dices, Gamepad2, LayoutGrid, Rows3, Search, Tag, Tv } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { MergeSuggestionsBanner, MergeSuggestionsModal, useMergeSuggestions } from "./MergeSuggestions";
+import { Roulette } from "./Roulette";
 import { useVirtualGrid } from "@/lib/useVirtualGrid";
 import { Button } from "@/components/ui/Button";
 import { STORE_META } from "@/lib/stores";
@@ -15,6 +17,7 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "added", label: "Añadido" },
   { key: "playCount", label: "Más jugados" },
   { key: "rating", label: "Valoración" },
+  { key: "size", label: "Tamaño en disco" },
 ];
 
 export function LibraryView() {
@@ -33,6 +36,9 @@ export function LibraryView() {
     return Array.from(count.entries()).sort((a, b) => b[1] - a[1]);
   }, [games]);
   const showRows = layout === "rows" && filter.type === "all" && !search.trim();
+  const [roulette, setRoulette] = useState(false);
+  const [reviewMerges, setReviewMerges] = useState(false);
+  const mergePairs = useMergeSuggestions();
   const vg = useVirtualGrid(scrollRef, showRows ? 0 : visible.length, tvMode ? Math.max(coverWidth, 240) : coverWidth, gap, showTitles);
 
   const heading = (() => {
@@ -104,6 +110,13 @@ export function LibraryView() {
             ))}
           </select>
         </label>
+        <button
+          onClick={() => setRoulette(true)}
+          title="¿A qué juego hoy?"
+          className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface/70 text-muted hover:text-fg"
+        >
+          <Dices size={15} />
+        </button>
         {!tvMode && (
           <button
             onClick={() => setTvMode(true)}
@@ -131,6 +144,9 @@ export function LibraryView() {
         </div>
       </header>
 
+      {filter.type === "all" && !tvMode && <MergeSuggestionsBanner pairs={mergePairs} onReview={() => setReviewMerges(true)} />}
+      <Roulette open={roulette} onClose={() => setRoulette(false)} />
+      <MergeSuggestionsModal pairs={mergePairs} open={reviewMerges} onClose={() => setReviewMerges(false)} />
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-7 pb-8">
         {!loaded ? null : games.length === 0 ? (
           <Empty

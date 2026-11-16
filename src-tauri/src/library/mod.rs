@@ -9,6 +9,95 @@ use crate::error::AppResult;
 use crate::models::{DetectedGame, ScanReport, Store};
 use crate::scanners;
 
+/// Calcula en un hilo el tamaño de cada carpeta de instalación y emite `library-changed` al acabar.
+pub fn spawn_compute_sizes(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        use tauri::{Emitter, Manager};
+        let state = app.state::<crate::state::AppState>();
+        let Ok(paths) = state.db.source_paths() else { return };
+        let mut changed = false;
+        for (id, path) in paths {
+            let bytes = dir_size(std::path::Path::new(&path)) as i64;
+            if state.db.set_source_size(&id, bytes).is_ok() {
+                changed = true;
+            }
+        }
+        if changed {
+            let _ = app.emit("library-changed", ());
+        }
+    });
+}
+
+fn dir_size(dir: &std::path::Path) -> u64 {
+    let mut total = 0;
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for e in rd.flatten() {
+            let Ok(meta) = e.metadata() else { continue };
+            if meta.is_dir() {
+                stack.push(e.path());
+            } else {
+                total += meta.len();
+            }
+        }
+    }
+    total
+}
+
+/// Palabras de edición que no distinguen un juego de otro.
+const EDITION_WORDS: &[&str] = &[
+    "deluxeedition", "deluxe", "edition", "goty", "gameoftheyear", "remastered", "definitive", "ultimate",
+    "complete", "enhanced", "directorscut", "gold", "premium", "digital", "standard", "legendary", "anniversary",
+];
+
+fn core_title(normalized: &str) -> String {
+    let mut s = normalized.to_string();
+    for w in EDITION_WORDS {
+        s = s.replace(w, "");
+    }
+    s
+}
+
+/// Pares de juegos de tiendas distintas cuyos títulos parecen el mismo juego.
+pub fn merge_suggestions(games: &[crate::models::Game], ignored: &[String]) -> Vec<crate::models::MergeSuggestion> {
+    let mut out = Vec::new();
+    let keys: Vec<(String, String)> = games
+        .iter()
+        .map(|g| {
+            let n = normalize_title(g.custom_title.as_deref().unwrap_or(&g.title));
+            (n.clone(), core_title(&n))
+        })
+        .collect();
+    for i in 0..games.len() {
+        for j in (i + 1)..games.len() {
+            let (a, b) = (&games[i], &games[j]);
+            if a.hidden || b.hidden {
+                continue;
+            }
+            let stores_a: std::collections::HashSet<_> = a.sources.iter().map(|s| s.store).collect();
+            if b.sources.iter().any(|s| stores_a.contains(&s.store)) {
+                continue; // misma tienda: no son el mismo juego
+            }
+            let (na, ca) = &keys[i];
+            let (nb, cb) = &keys[j];
+            let shorter = na.len().min(nb.len());
+            let similar = (ca == cb && !ca.is_empty())
+                || (shorter >= 5 && (na.starts_with(nb.as_str()) || nb.starts_with(na.as_str())) && na.len().abs_diff(nb.len()) <= 14);
+            if !similar {
+                continue;
+            }
+            let key = format!("{}|{}", a.id, b.id);
+            let key_rev = format!("{}|{}", b.id, a.id);
+            if ignored.iter().any(|k| k == &key || k == &key_rev) {
+                continue;
+            }
+            out.push(crate::models::MergeSuggestion { a: a.id.clone(), b: b.id.clone() });
+        }
+    }
+    out
+}
+
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
@@ -77,6 +166,57 @@ pub fn scan_all(db: &Db) -> AppResult<ScanReport> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn suggests_merges_across_stores() {
+        use crate::models::*;
+        let mk = |id: &str, title: &str, store: Store| Game {
+            id: id.into(),
+            title: title.into(),
+            custom_title: None,
+            favorite: false,
+            hidden: false,
+            last_played: None,
+            play_count: 0,
+            added_at: 0,
+            preferred_source: None,
+            sgdb_id: None,
+            artwork: Artwork::default(),
+            artwork_version: 0,
+            playtime_secs: 0,
+            external_playtime_secs: 0,
+            status: GameStatus::None,
+            rating: 0,
+            notes: String::new(),
+            art_color: None,
+            meta: None,
+            launch_options: LaunchOptions::default(),
+            sources: vec![GameSource {
+                id: format!("{}:{id}", store.as_str()),
+                store,
+                store_id: id.into(),
+                title: title.into(),
+                install_path: None,
+                launch: LaunchTarget::Uri { uri: String::new() },
+                size_bytes: None,
+            }],
+            collections: vec![],
+        };
+        let games = vec![
+            mk("a", "DOOM Eternal", Store::Steam),
+            mk("b", "DOOM Eternal Deluxe Edition", Store::Epic),
+            mk("c", "DOOM Eternal", Store::Gog),
+            mk("d", "Celeste", Store::Steam),
+            mk("e", "Hades II", Store::Epic),
+            mk("f", "Hades", Store::Steam),
+        ];
+        let s = merge_suggestions(&games, &[]);
+        let pairs: Vec<String> = s.iter().map(|p| format!("{}|{}", p.a, p.b)).collect();
+        assert!(pairs.contains(&"a|b".into()) && pairs.contains(&"a|c".into()) && pairs.contains(&"b|c".into()));
+        assert!(pairs.contains(&"e|f".into()), "Hades II / Hades se propone (prefijo corto) y el usuario decide");
+        assert!(!pairs.iter().any(|p| p.contains('d')));
+        assert!(merge_suggestions(&games, &["b|a".into()]).iter().all(|p| !(p.a == "a" && p.b == "b")));
+    }
 
     #[test]
     fn normalizes_titles() {

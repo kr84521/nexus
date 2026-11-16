@@ -31,6 +31,7 @@ pub async fn scan_library(app: AppHandle) -> AppResult<ScanReport> {
     .await
     .map_err(|e| AppError::msg(e.to_string()))??;
     crate::tray::refresh_recent(&app);
+    library::spawn_compute_sizes(app.clone());
     artwork::spawn_fetch_missing(app);
     Ok(report)
 }
@@ -84,6 +85,16 @@ pub fn set_rating(state: State<'_, AppState>, id: String, rating: i64) -> AppRes
 pub fn set_notes(state: State<'_, AppState>, id: String, notes: String) -> AppResult<Game> {
     state.db.set_notes(&id, &notes)?;
     state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn merge_suggestions(state: State<'_, AppState>) -> AppResult<Vec<crate::models::MergeSuggestion>> {
+    let ignored: Vec<String> = state
+        .db
+        .get_setting("ignoredMergePairs")?
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    Ok(library::merge_suggestions(&state.db.load_games()?, &ignored))
 }
 
 #[tauri::command]

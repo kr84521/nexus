@@ -13,6 +13,12 @@ export interface GameSource {
   title: string;
   installPath: string | null;
   launch: LaunchTarget;
+  sizeBytes: number | null;
+}
+
+export interface MergeSuggestion {
+  a: string;
+  b: string;
 }
 
 export interface Artwork {

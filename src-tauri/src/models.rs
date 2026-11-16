@@ -84,6 +84,16 @@ pub struct GameSource {
     pub title: String,
     pub install_path: Option<String>,
     pub launch: LaunchTarget,
+    /// Tamaño de la carpeta de instalación (se calcula en segundo plano tras escanear).
+    pub size_bytes: Option<i64>,
+}
+
+/// Par de juegos que probablemente son el mismo en tiendas distintas.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeSuggestion {
+    pub a: String,
+    pub b: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

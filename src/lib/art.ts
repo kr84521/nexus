@@ -19,6 +19,16 @@ export function titleHue(title: string): number {
   return h;
 }
 
+export function gameSize(game: Game): number {
+  return game.sources.reduce((acc, s) => acc + (s.sizeBytes ?? 0), 0);
+}
+
+export function formatBytes(b: number): string {
+  if (b <= 0) return "";
+  if (b < 1024 ** 3) return `${(b / 1024 ** 2).toFixed(0)} MB`;
+  return `${(b / 1024 ** 3).toFixed(1).replace(".0", "")} GB`;
+}
+
 export function formatPlaytime(secs: number): string {
   if (secs < 60) return "Menos de 1 min";
   const min = Math.round(secs / 60);

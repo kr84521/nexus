@@ -68,6 +68,7 @@ pub fn run() {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 artwork::backfill_colors(&handle.state::<AppState>());
+                library::spawn_compute_sizes(handle.clone());
                 metadata::spawn_fetch_missing(handle.clone());
                 let h = handle.clone();
                 tauri::async_runtime::spawn(async move {
@@ -110,6 +111,7 @@ pub fn run() {
             commands::library::set_notes,
             commands::library::sync_steam,
             commands::library::steam_owned_not_installed,
+            commands::library::merge_suggestions,
             commands::library::get_stats,
             commands::library::set_favorite,
             commands::library::set_hidden,

@@ -8,6 +8,7 @@ import {
   EyeOff,
   FolderOpen,
   FolderPlus,
+  HardDrive,
   Image as ImageIcon,
   Pencil,
   Play,
@@ -21,7 +22,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { StoreDot } from "@/app/Sidebar";
 import { Button, IconButton } from "@/components/ui/Button";
-import { artSrc, displayTitle, formatPlaytime, relativeTime } from "@/lib/art";
+import { artSrc, displayTitle, formatBytes, formatPlaytime, gameSize, relativeTime } from "@/lib/art";
 import { api, errorText } from "@/lib/api";
 import { STORE_META } from "@/lib/stores";
 import { useLibrary } from "@/stores/library";
@@ -180,6 +181,11 @@ export function GameDetail({ game }: { game: Game }) {
               </span>
             )}
             {game.playCount > 0 && <span>{game.playCount} {game.playCount === 1 ? "sesión" : "sesiones"}</span>}
+            {gameSize(game) > 0 && (
+              <span className="flex items-center gap-1.5" title="Tamaño en disco">
+                <HardDrive size={14} /> {formatBytes(gameSize(game))}
+              </span>
+            )}
           </div>
 
           <SourcesPanel game={game} />
