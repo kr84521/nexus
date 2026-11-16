@@ -16,34 +16,53 @@ pub struct Db {
 }
 
 /// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 /// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
 /// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
 fn migrate(conn: &Connection) -> AppResult<()> {
     let mut v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    // `schema.sql` ya ha creado las tablas que faltaban con todas sus columnas, así que cada
+    // ALTER debe comprobar antes si la columna existe (una BD v0 no tenía `metadata`, p. ej.).
     if v < 1 {
-        conn.execute_batch("ALTER TABLE games ADD COLUMN playtime_secs INTEGER NOT NULL DEFAULT 0;")?;
+        add_column(conn, "games", "playtime_secs", "INTEGER NOT NULL DEFAULT 0")?;
         v = 1;
     }
     if v < 2 {
-        conn.execute_batch(
-            "ALTER TABLE games ADD COLUMN art_color TEXT;
-             ALTER TABLE games ADD COLUMN meta_fetched INTEGER NOT NULL DEFAULT 0;",
-        )?;
+        add_column(conn, "games", "art_color", "TEXT")?;
+        add_column(conn, "games", "meta_fetched", "INTEGER NOT NULL DEFAULT 0")?;
         v = 2;
     }
     if v < 3 {
-        conn.execute_batch(
-            "ALTER TABLE games ADD COLUMN external_playtime_secs INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE games ADD COLUMN status TEXT NOT NULL DEFAULT 'none';
-             ALTER TABLE games ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE games ADD COLUMN notes TEXT NOT NULL DEFAULT '';",
-        )?;
+        add_column(conn, "games", "external_playtime_secs", "INTEGER NOT NULL DEFAULT 0")?;
+        add_column(conn, "games", "status", "TEXT NOT NULL DEFAULT 'none'")?;
+        add_column(conn, "games", "rating", "INTEGER NOT NULL DEFAULT 0")?;
+        add_column(conn, "games", "notes", "TEXT NOT NULL DEFAULT ''")?;
         v = 3;
+    }
+    if v < 4 {
+        // Metacritic: los metadatos se vuelven a descargar para rellenarlo.
+        if add_column(conn, "metadata", "metacritic", "INTEGER")? {
+            conn.execute_batch("UPDATE games SET meta_fetched = 0;")?;
+        }
+        v = 4;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
+}
+
+/// Añade la columna si no existe. Devuelve `true` si la ha añadido.
+fn add_column(conn: &Connection, table: &str, column: &str, decl: &str) -> AppResult<bool> {
+    let exists = conn
+        .prepare(&format!("PRAGMA table_info({table})"))?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|c| c == column);
+    if exists {
+        return Ok(false);
+    }
+    conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl};"))?;
+    Ok(true)
 }
 
 /// Juego pendiente de descargar arte automáticamente.
@@ -134,7 +153,7 @@ impl Db {
         {
             let mut st = conn.prepare(
                 "SELECT game_id, steam_appid, description, genres, release_year, developer, publisher,
-                        trailer_url, trailer_poster FROM metadata",
+                        trailer_url, trailer_poster, metacritic FROM metadata",
             )?;
             let rows = st.query_map([], |r| {
                 Ok((
@@ -148,6 +167,7 @@ impl Db {
                         publisher: r.get(6)?,
                         trailer_url: r.get(7)?,
                         trailer_poster: r.get(8)?,
+                        metacritic: r.get(9)?,
                     },
                 ))
             })?;
@@ -630,12 +650,19 @@ impl Db {
 
     pub fn set_metadata(&self, id: &str, m: &Metadata) -> AppResult<()> {
         self.conn().execute(
-            "INSERT INTO metadata (game_id, steam_appid, description, genres, release_year, developer, publisher, trailer_url, trailer_poster)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "INSERT INTO metadata (game_id, steam_appid, description, genres, release_year, developer, publisher, trailer_url, trailer_poster,
+                                   metacritic)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(game_id) DO UPDATE SET
-                steam_appid = excluded.steam_appid, description = excluded.description, genres = excluded.genres,
-                release_year = excluded.release_year, developer = excluded.developer, publisher = excluded.publisher,
-                trailer_url = excluded.trailer_url, trailer_poster = excluded.trailer_poster",
+                steam_appid = COALESCE(excluded.steam_appid, metadata.steam_appid),
+                description = COALESCE(excluded.description, metadata.description),
+                genres = CASE WHEN excluded.genres = '[]' THEN metadata.genres ELSE excluded.genres END,
+                release_year = COALESCE(excluded.release_year, metadata.release_year),
+                developer = COALESCE(excluded.developer, metadata.developer),
+                publisher = COALESCE(excluded.publisher, metadata.publisher),
+                trailer_url = COALESCE(excluded.trailer_url, metadata.trailer_url),
+                trailer_poster = COALESCE(excluded.trailer_poster, metadata.trailer_poster),
+                metacritic = COALESCE(excluded.metacritic, metadata.metacritic)",
             params![
                 id,
                 m.steam_appid,
@@ -645,10 +672,25 @@ impl Db {
                 m.developer,
                 m.publisher,
                 m.trailer_url,
-                m.trailer_poster
+                m.trailer_poster,
+                m.metacritic
             ],
         )?;
         Ok(())
+    }
+
+    /// Juegos de la cuenta de Steam sin instalación detectada.
+    pub fn steam_owned_not_installed(&self) -> AppResult<Vec<OwnedGame>> {
+        let conn = self.conn();
+        let mut st = conn.prepare(
+            "SELECT o.appid, o.name, o.playtime_min, o.last_played FROM steam_owned o
+             WHERE NOT EXISTS (SELECT 1 FROM sources s WHERE s.store = 'steam' AND s.store_id = o.appid)
+             ORDER BY o.name",
+        )?;
+        let rows = st.query_map([], |r| {
+            Ok(OwnedGame { appid: r.get(0)?, name: r.get(1)?, playtime_min: r.get(2)?, last_played: r.get(3)? })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     pub fn mark_meta_fetched(&self, id: &str, v: bool) -> AppResult<()> {

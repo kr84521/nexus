@@ -79,6 +79,11 @@ pub fn set_notes(state: State<'_, AppState>, id: String, notes: String) -> AppRe
 }
 
 #[tauri::command]
+pub fn steam_owned_not_installed(state: State<'_, AppState>) -> AppResult<Vec<crate::models::OwnedGame>> {
+    state.db.steam_owned_not_installed()
+}
+
+#[tauri::command]
 pub async fn sync_steam(state: State<'_, AppState>) -> AppResult<crate::steam_sync::SyncReport> {
     crate::steam_sync::sync(&state).await
 }

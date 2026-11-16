@@ -56,6 +56,14 @@ export interface Metadata {
   publisher: string | null;
   trailerUrl: string | null;
   trailerPoster: string | null;
+  metacritic: number | null;
+}
+
+export interface OwnedGame {
+  appid: string;
+  name: string;
+  playtimeMin: number;
+  lastPlayed: number | null;
 }
 
 export interface LaunchOptions {

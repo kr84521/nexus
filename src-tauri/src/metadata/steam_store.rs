@@ -41,6 +41,12 @@ struct Details {
     release_date: Option<ReleaseDate>,
     #[serde(default)]
     movies: Vec<Movie>,
+    metacritic: Option<Metacritic>,
+}
+
+#[derive(Deserialize)]
+struct Metacritic {
+    score: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -123,6 +129,7 @@ impl SteamStore<'_> {
             publisher: d.publishers.into_iter().next(),
             trailer_url,
             trailer_poster,
+            metacritic: d.metacritic.and_then(|m| m.score),
         }))
     }
 }

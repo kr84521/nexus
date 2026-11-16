@@ -16,7 +16,7 @@ export type Filter =
   | { type: "status"; status: GameStatus };
 
 export type SortKey = "title" | "lastPlayed" | "added" | "playCount" | "rating";
-export type Page = "library" | "settings" | "stats";
+export type Page = "library" | "settings" | "stats" | "owned";
 
 interface LibraryState {
   games: Game[];

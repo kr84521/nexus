@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS metadata (
     developer      TEXT,
     publisher      TEXT,
     trailer_url    TEXT,
-    trailer_poster TEXT
+    trailer_poster TEXT,
+    metacritic     INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS launch_options (

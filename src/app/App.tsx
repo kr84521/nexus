@@ -10,6 +10,7 @@ import { TvBar } from "@/features/library/TvBar";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyTheme } from "@/lib/theme";
 import { StatsView } from "@/features/stats/StatsView";
+import { OwnedView } from "@/features/library/OwnedView";
 import { displayTitle, formatPlaytime } from "@/lib/art";
 import { ArtworkBackdrop } from "@/features/library/ArtworkBackdrop";
 import { LibraryView } from "@/features/library/LibraryView";
@@ -160,6 +161,10 @@ export function App() {
             ) : page === "stats" ? (
               <Page key="stats">
                 <StatsView />
+              </Page>
+            ) : page === "owned" ? (
+              <Page key="owned">
+                <OwnedView />
               </Page>
             ) : (
               <Page key="library">{loaded && <LibraryView />}</Page>

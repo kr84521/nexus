@@ -186,9 +186,18 @@ export function GameDetail({ game }: { game: Game }) {
 
           <StatusControls game={game} />
 
-          {meta && (meta.description || meta.genres.length > 0) && (
+          {meta && (meta.description || meta.genres.length > 0 || meta.metacritic) && (
             <div className="flex max-w-2xl flex-col gap-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg/70">
+                {meta.metacritic && (
+                  <span
+                    className="rounded px-1.5 py-0.5 font-semibold text-white"
+                    style={{ background: meta.metacritic >= 75 ? "#16a34a" : meta.metacritic >= 50 ? "#ca8a04" : "#dc2626" }}
+                    title="Metacritic"
+                  >
+                    {meta.metacritic}
+                  </span>
+                )}
                 {meta.releaseYear && <span>{meta.releaseYear}</span>}
                 {meta.developer && <span>{meta.developer}</span>}
                 {meta.genres.map((g) => (

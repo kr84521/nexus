@@ -1,4 +1,4 @@
-import { Activity, Clock, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
+import { Activity, Clock, CloudDownload, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { STATUS_META, STATUS_ORDER } from "@/lib/status";
 import { STORE_META, STORE_ORDER } from "@/lib/stores";
@@ -87,6 +87,14 @@ export function Sidebar() {
           item({ type: "store", store: s }, <StoreDot store={s} />, STORE_META[s].label, counts.perStore[s]),
         )}
         {counts.all === 0 && <p className="px-2.5 py-1 text-xs text-muted/70">Escanea para detectar tiendas.</p>}
+        <button
+          onClick={() => setPage("owned")}
+          className={`focus-ring flex w-full items-center gap-2.5 rounded-card px-2.5 py-[7px] text-[13px] transition
+            ${page === "owned" ? "bg-accent/16 font-medium text-fg" : "text-muted hover:bg-fg/6 hover:text-fg"}`}
+        >
+          <CloudDownload size={16} style={{ color: STORE_META.steam.color }} />
+          <span className="flex-1 text-left">Steam · no instalados</span>
+        </button>
       </nav>
 
       <SectionLabel

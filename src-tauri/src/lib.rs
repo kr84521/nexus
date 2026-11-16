@@ -108,6 +108,7 @@ pub fn run() {
             commands::library::set_rating,
             commands::library::set_notes,
             commands::library::sync_steam,
+            commands::library::steam_owned_not_installed,
             commands::library::get_stats,
             commands::library::set_favorite,
             commands::library::set_hidden,

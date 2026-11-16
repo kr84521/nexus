@@ -189,6 +189,17 @@ pub struct Metadata {
     pub publisher: Option<String>,
     pub trailer_url: Option<String>,
     pub trailer_poster: Option<String>,
+    pub metacritic: Option<i64>,
+}
+
+/// Juego de la cuenta de Steam que no está instalado.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OwnedGame {
+    pub appid: String,
+    pub name: String,
+    pub playtime_min: i64,
+    pub last_played: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
