@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { api, errorText } from "@/lib/api";
 import { displayTitle } from "@/lib/art";
 import { STORE_ORDER } from "@/lib/stores";
-import type { Collection, Game, Store } from "@/types";
+import type { Collection, Game, GameStatus, Store } from "@/types";
 import { toast } from "./toast";
 
 export type Filter =
@@ -12,9 +12,10 @@ export type Filter =
   | { type: "hidden" }
   | { type: "store"; store: Store }
   | { type: "collection"; id: string }
-  | { type: "genre"; genre: string };
+  | { type: "genre"; genre: string }
+  | { type: "status"; status: GameStatus };
 
-export type SortKey = "title" | "lastPlayed" | "added" | "playCount";
+export type SortKey = "title" | "lastPlayed" | "added" | "playCount" | "rating";
 export type Page = "library" | "settings" | "stats";
 
 interface LibraryState {
@@ -248,6 +249,9 @@ export function selectVisible(s: LibraryState): Game[] {
       case "genre":
         if (!g.meta?.genres.includes(s.filter.genre)) return false;
         break;
+      case "status":
+        if (g.status !== s.filter.status) return false;
+        break;
     }
     return !q || displayTitle(g).toLowerCase().includes(q);
   });
@@ -262,6 +266,8 @@ export function selectVisible(s: LibraryState): Game[] {
         return b.addedAt - a.addedAt || byTitle(a, b);
       case "playCount":
         return b.playtimeSecs - a.playtimeSecs || b.playCount - a.playCount || byTitle(a, b);
+      case "rating":
+        return b.rating - a.rating || byTitle(a, b);
       default:
         return byTitle(a, b);
     }

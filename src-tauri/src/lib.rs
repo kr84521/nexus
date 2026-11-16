@@ -8,17 +8,19 @@ mod launcher;
 mod library;
 mod metadata;
 mod models;
+mod notify;
 mod playtime;
 mod saves;
 mod scanners;
 mod state;
 mod stats;
+mod steam_sync;
 mod tray;
 
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 use crate::db::Db;
 use crate::state::AppState;
@@ -33,6 +35,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -65,6 +68,19 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 artwork::backfill_colors(&handle.state::<AppState>());
                 metadata::spawn_fetch_missing(handle.clone());
+                let h = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = h.state::<AppState>();
+                    if steam_sync::credentials(&state).is_ok() {
+                        match steam_sync::sync(&state).await {
+                            Ok(r) if r.updated > 0 => {
+                                let _ = h.emit("library-changed", ());
+                            }
+                            Ok(_) => {}
+                            Err(e) => eprintln!("[steam] sincronización: {e}"),
+                        }
+                    }
+                });
             });
 
             let minimized = std::env::args().any(|a| a == ARG_MINIMIZED);
@@ -88,6 +104,10 @@ pub fn run() {
             commands::library::scan_library,
             commands::library::launch_game,
             commands::library::set_launch_options,
+            commands::library::set_status,
+            commands::library::set_rating,
+            commands::library::set_notes,
+            commands::library::sync_steam,
             commands::library::get_stats,
             commands::library::set_favorite,
             commands::library::set_hidden,

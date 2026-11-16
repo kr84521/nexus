@@ -16,7 +16,7 @@ pub struct Db {
 }
 
 /// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 /// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
 /// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
@@ -32,6 +32,15 @@ fn migrate(conn: &Connection) -> AppResult<()> {
              ALTER TABLE games ADD COLUMN meta_fetched INTEGER NOT NULL DEFAULT 0;",
         )?;
         v = 2;
+    }
+    if v < 3 {
+        conn.execute_batch(
+            "ALTER TABLE games ADD COLUMN external_playtime_secs INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE games ADD COLUMN status TEXT NOT NULL DEFAULT 'none';
+             ALTER TABLE games ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE games ADD COLUMN notes TEXT NOT NULL DEFAULT '';",
+        )?;
+        v = 3;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -174,7 +183,7 @@ impl Db {
         let mut st = conn.prepare(
             "SELECT id, title, custom_title, favorite, hidden, last_played, play_count, added_at,
                     preferred_source, sgdb_id, art_cover, art_hero, art_logo, art_icon, art_version,
-                    playtime_secs, art_color
+                    playtime_secs, art_color, external_playtime_secs, status, rating, notes
              FROM games",
         )?;
         let rows = st.query_map([], |r| {
@@ -198,6 +207,10 @@ impl Db {
                 artwork_version: r.get(14)?,
                 playtime_secs: r.get(15)?,
                 art_color: r.get::<_, Option<String>>(16)?.filter(|c| !c.is_empty()),
+                external_playtime_secs: r.get(17)?,
+                status: GameStatus::parse(&r.get::<_, String>(18)?),
+                rating: r.get(19)?,
+                notes: r.get(20)?,
                 meta: None,
                 launch_options: LaunchOptions::default(),
                 sources: vec![],
@@ -369,6 +382,15 @@ impl Db {
             params![into, from],
         )?;
         tx.execute("UPDATE games SET last_played = NULL WHERE id = ?1 AND last_played = 0", [into])?;
+        tx.execute(
+            "UPDATE games SET
+                external_playtime_secs = external_playtime_secs + (SELECT external_playtime_secs FROM games WHERE id = ?2),
+                rating = MAX(rating, (SELECT rating FROM games WHERE id = ?2)),
+                status = CASE WHEN status = 'none' THEN (SELECT status FROM games WHERE id = ?2) ELSE status END,
+                notes = TRIM(notes || CASE WHEN (SELECT notes FROM games WHERE id = ?2) = '' THEN '' ELSE char(10) || (SELECT notes FROM games WHERE id = ?2) END)
+             WHERE id = ?1",
+            params![into, from],
+        )?;
         tx.execute("DELETE FROM games WHERE id = ?1", [from])?;
         tx.commit()?;
         Ok(())
@@ -508,6 +530,69 @@ impl Db {
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn set_status(&self, id: &str, status: GameStatus) -> AppResult<()> {
+        self.conn().execute("UPDATE games SET status = ?2 WHERE id = ?1", params![id, status.as_str()])?;
+        Ok(())
+    }
+
+    pub fn set_rating(&self, id: &str, rating: i64) -> AppResult<()> {
+        self.conn().execute("UPDATE games SET rating = ?2 WHERE id = ?1", params![id, rating.clamp(0, 5)])?;
+        Ok(())
+    }
+
+    pub fn set_notes(&self, id: &str, notes: &str) -> AppResult<()> {
+        self.conn().execute("UPDATE games SET notes = ?2 WHERE id = ?1", params![id, notes])?;
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------- Steam (Web API)
+
+    pub fn replace_steam_owned(&self, owned: &[crate::steam_sync::OwnedGame]) -> AppResult<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM steam_owned", [])?;
+        for g in owned {
+            tx.execute(
+                "INSERT INTO steam_owned (appid, name, playtime_min, last_played, icon_hash) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    g.appid.to_string(),
+                    g.name,
+                    g.playtime_forever,
+                    (g.rtime_last_played > 0).then(|| g.rtime_last_played * 1000),
+                    (!g.img_icon_url.is_empty()).then(|| g.img_icon_url.clone())
+                ],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Aplica horas externas (appid, segundos, última partida ms) a los juegos con fuente Steam.
+    /// Devuelve (juegos actualizados, segundos externos totales aplicados).
+    pub fn apply_external_playtime(&self, items: &[(String, i64, i64)]) -> AppResult<(usize, i64)> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let mut updated = 0;
+        let mut total = 0;
+        for (appid, secs, last) in items {
+            let n = tx.execute(
+                "UPDATE games SET
+                    playtime_secs = playtime_secs - external_playtime_secs + ?2,
+                    external_playtime_secs = ?2,
+                    last_played = CASE WHEN ?3 > COALESCE(last_played, 0) THEN ?3 ELSE last_played END
+                 WHERE id = (SELECT game_id FROM sources WHERE store = 'steam' AND store_id = ?1 LIMIT 1)
+                   AND (external_playtime_secs != ?2 OR ?3 > COALESCE(last_played, 0))",
+                params![appid, secs, last],
+            )?;
+            if n > 0 {
+                updated += n;
+                total += secs;
+            }
+        }
+        tx.commit()?;
+        Ok((updated, total))
     }
 
     pub fn set_launch_options(&self, id: &str, o: &LaunchOptions) -> AppResult<()> {

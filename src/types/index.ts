@@ -36,6 +36,10 @@ export interface Game {
   artwork: Artwork;
   artworkVersion: number;
   playtimeSecs: number;
+  externalPlaytimeSecs: number;
+  status: GameStatus;
+  rating: number;
+  notes: string;
   artColor: string | null;
   meta: Metadata | null;
   launchOptions: LaunchOptions;
@@ -136,6 +140,8 @@ export interface ScanReport {
 }
 
 export type ArtKind = "cover" | "hero" | "logo" | "icon";
+
+export type GameStatus = "none" | "backlog" | "playing" | "completed" | "dropped";
 
 export interface ArtOption {
   id: number;

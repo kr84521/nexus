@@ -95,6 +95,39 @@ pub struct Artwork {
     pub icon: Option<String>,
 }
 
+/// Estado del juego en el backlog del usuario.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum GameStatus {
+    #[default]
+    None,
+    Backlog,
+    Playing,
+    Completed,
+    Dropped,
+}
+
+impl GameStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            GameStatus::None => "none",
+            GameStatus::Backlog => "backlog",
+            GameStatus::Playing => "playing",
+            GameStatus::Completed => "completed",
+            GameStatus::Dropped => "dropped",
+        }
+    }
+    pub fn parse(s: &str) -> GameStatus {
+        match s {
+            "backlog" => GameStatus::Backlog,
+            "playing" => GameStatus::Playing,
+            "completed" => GameStatus::Completed,
+            "dropped" => GameStatus::Dropped,
+            _ => GameStatus::None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
@@ -112,6 +145,12 @@ pub struct Game {
     /// Marca de tiempo del último cambio de arte (para invalidar caché en el frontend).
     pub artwork_version: i64,
     pub playtime_secs: i64,
+    /// Parte de `playtime_secs` que viene de Steam (sincronización), no de sesiones medidas aquí.
+    pub external_playtime_secs: i64,
+    pub status: GameStatus,
+    /// 0 = sin valorar, 1-5 estrellas
+    pub rating: i64,
+    pub notes: String,
     /// Color dominante de la portada (#rrggbb), para el acento por juego.
     pub art_color: Option<String>,
     pub meta: Option<Metadata>,

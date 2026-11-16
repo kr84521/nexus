@@ -122,6 +122,10 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
     let _ = app.emit(EVENT_GAME_RUNNING, RunningPayload { game_id: &game_id, running: false });
     let _ = app.emit(crate::artwork::EVENT_ART_UPDATED, &game_id); // reutiliza el refresco de un juego
     let _ = app.emit(EVENT_SESSION_ENDED, SessionEndedPayload { game_id: &game_id, secs });
+    if let Ok(g) = state.db.get_game(&game_id) {
+        let title = g.custom_title.clone().unwrap_or(g.title.clone());
+        crate::notify::when_hidden(&app, &title, &format!("Has jugado {}", crate::notify::fmt_secs(secs)));
+    }
 
     launcher::run_user_command(&on_exit.post_command, on_exit.cwd.as_deref());
     if let Some(store) = on_exit.close_store {
@@ -139,6 +143,7 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
         match state.db.get_game(&game_id).and_then(|g| crate::saves::backup(&state, &g)) {
             Ok(b) => {
                 let _ = app.emit("saves-backed-up", serde_json::json!({ "gameId": game_id, "files": b.files }));
+                crate::notify::when_hidden(&app, "Copia de partidas guardada", &format!("{} archivos", b.files));
             }
             Err(e) => eprintln!("[saves] {game_id}: {e}"),
         }

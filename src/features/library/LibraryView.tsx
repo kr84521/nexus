@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { STORE_META } from "@/lib/stores";
 import { selectVisible, useLibrary, type SortKey } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
+import { STATUS_META } from "@/lib/status";
 import { GameCard } from "./GameCard";
 import { RowsView } from "./RowsView";
 
@@ -13,6 +14,7 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "lastPlayed", label: "Jugado recientemente" },
   { key: "added", label: "Añadido" },
   { key: "playCount", label: "Más jugados" },
+  { key: "rating", label: "Valoración" },
 ];
 
 export function LibraryView() {
@@ -49,6 +51,8 @@ export function LibraryView() {
         return collections.find((c) => c.id === filter.id)?.name ?? "Colección";
       case "genre":
         return filter.genre;
+      case "status":
+        return STATUS_META[filter.status].label;
     }
   })();
 

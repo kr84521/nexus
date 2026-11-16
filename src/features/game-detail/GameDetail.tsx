@@ -33,6 +33,7 @@ import { FallbackCover } from "@/features/library/GameCard";
 import { AchievementsPanel, NewsPanel, ScreenshotsPanel } from "./ExtrasPanels";
 import { SavesPanel } from "./SavesPanel";
 import { SourcesPanel } from "./SourcesPanel";
+import { StatusControls } from "./StatusControls";
 import { TrailerVideo } from "./TrailerVideo";
 
 export function GameDetail({ game }: { game: Game }) {
@@ -182,6 +183,8 @@ export function GameDetail({ game }: { game: Game }) {
           </div>
 
           <SourcesPanel game={game} />
+
+          <StatusControls game={game} />
 
           {meta && (meta.description || meta.genres.length > 0) && (
             <div className="flex max-w-2xl flex-col gap-2">

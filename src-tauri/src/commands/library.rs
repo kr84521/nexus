@@ -5,7 +5,7 @@ use crate::artwork;
 use crate::error::{AppError, AppResult};
 use crate::launcher;
 use crate::library;
-use crate::models::{Collection, Game, LaunchOptions, ScanReport};
+use crate::models::{Collection, Game, GameStatus, LaunchOptions, ScanReport};
 use crate::playtime;
 use crate::stats::{self, StatsReport};
 use crate::state::AppState;
@@ -58,6 +58,29 @@ pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: String, sourc
         },
     );
     state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn set_status(state: State<'_, AppState>, id: String, status: GameStatus) -> AppResult<Game> {
+    state.db.set_status(&id, status)?;
+    state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn set_rating(state: State<'_, AppState>, id: String, rating: i64) -> AppResult<Game> {
+    state.db.set_rating(&id, rating)?;
+    state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub fn set_notes(state: State<'_, AppState>, id: String, notes: String) -> AppResult<Game> {
+    state.db.set_notes(&id, &notes)?;
+    state.db.get_game(&id)
+}
+
+#[tauri::command]
+pub async fn sync_steam(state: State<'_, AppState>) -> AppResult<crate::steam_sync::SyncReport> {
+    crate::steam_sync::sync(&state).await
 }
 
 #[tauri::command]

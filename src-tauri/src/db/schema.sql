@@ -20,7 +20,20 @@ CREATE TABLE IF NOT EXISTS games (
     art_fetched      INTEGER NOT NULL DEFAULT 0, -- 1 = ya se intentó la descarga automática
     playtime_secs    INTEGER NOT NULL DEFAULT 0,
     art_color        TEXT,
-    meta_fetched     INTEGER NOT NULL DEFAULT 0
+    meta_fetched     INTEGER NOT NULL DEFAULT 0,
+    external_playtime_secs INTEGER NOT NULL DEFAULT 0,
+    status           TEXT NOT NULL DEFAULT 'none',
+    rating           INTEGER NOT NULL DEFAULT 0,
+    notes            TEXT NOT NULL DEFAULT ''
+);
+
+-- Biblioteca completa de Steam (instalados o no), de la Web API.
+CREATE TABLE IF NOT EXISTS steam_owned (
+    appid        TEXT PRIMARY KEY,
+    name         TEXT NOT NULL,
+    playtime_min INTEGER NOT NULL DEFAULT 0,
+    last_played  INTEGER,
+    icon_hash    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS metadata (

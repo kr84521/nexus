@@ -3,6 +3,7 @@ import { memo } from "react";
 import { StoreDot } from "@/app/Sidebar";
 import { ContextMenu } from "@/components/ui/ContextMenu";
 import { artSrc, displayTitle, titleHue } from "@/lib/art";
+import { STATUS_META } from "@/lib/status";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import type { Game } from "@/types";
@@ -56,6 +57,13 @@ export const GameCard = memo(function GameCard({ game }: { game: Game }) {
 
           {game.favorite && (
             <Star size={14} className="absolute top-2 right-2 fill-amber-400 text-amber-400 drop-shadow" />
+          )}
+          {game.status !== "none" && (
+            <span
+              className="absolute right-2 bottom-2 size-2.5 rounded-full ring-2 ring-black/50"
+              style={{ background: STATUS_META[game.status].color }}
+              title={STATUS_META[game.status].label}
+            />
           )}
           {showBadges && (
             <div className="absolute top-2 left-2 flex gap-1">

@@ -65,6 +65,7 @@ export function App() {
       listen("artwork-done", () => setFetchingArt(false)),
       listen<{ gameId: string; running: boolean }>("game-running", (e) => setRunning(e.payload.gameId, e.payload.running)),
       listen("scan-requested", () => scan()),
+      listen("library-changed", () => load()),
       listen<{ gameId: string; files: number }>("saves-backed-up", (e) => {
         toast.success(`Copia de partidas guardada (${e.payload.files} archivos)`);
       }),
@@ -76,7 +77,7 @@ export function App() {
     return () => {
       unlisten.forEach((p) => p.then((f) => f()));
     };
-  }, [refreshGame, setFetchingArt, setRunning, scan]);
+  }, [refreshGame, setFetchingArt, setRunning, scan, load]);
 
   // Modo TV: pantalla completa + variables de tamaño.
   useEffect(() => {

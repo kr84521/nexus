@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import type { MenuEntry, MenuPosition } from "@/components/ui/ContextMenu";
 import { api, errorText } from "@/lib/api";
 import { STORE_META } from "@/lib/stores";
+import { STATUS_META, STATUS_ORDER } from "@/lib/status";
 import { useLibrary } from "@/stores/library";
 import { toast } from "@/stores/toast";
 import type { Game } from "@/types";
@@ -17,8 +18,10 @@ export function useGameMenu(game: Game) {
   }, []);
   const close = useCallback(() => setAt(null), []);
 
-  const { launch, toggleFavorite, toggleHidden, removeGame, collections, toggleInCollection, openArt, openLaunchOptions } =
+  const { launch, toggleFavorite, toggleHidden, removeGame, collections, toggleInCollection, openArt, openLaunchOptions, upsert } =
     useLibrary();
+  const setStatus = (s: Game["status"]) =>
+    api.setStatus(game.id, game.status === s ? "none" : s).then(upsert).catch((e) => toast.error(errorText(e)));
   const installPath = game.sources.find((s) => s.installPath)?.installPath;
 
   const entries: MenuEntry[] = [
@@ -31,6 +34,13 @@ export function useGameMenu(game: Game) {
       : [{ label: "Jugar", icon: <Play size={14} />, onClick: () => launch(game.id) } as MenuEntry]),
     "separator",
     { label: "Favorito", icon: <Star size={14} />, checked: game.favorite, onClick: () => toggleFavorite(game.id) },
+    ...STATUS_ORDER.map<MenuEntry>((s) => ({
+      label: STATUS_META[s].label,
+      icon: <span className="size-2 rounded-full" style={{ background: STATUS_META[s].color }} />,
+      checked: game.status === s,
+      onClick: () => setStatus(s),
+    })),
+    "separator",
     ...collections.map<MenuEntry>((c) => ({
       label: c.name,
       checked: game.collections.includes(c.id),

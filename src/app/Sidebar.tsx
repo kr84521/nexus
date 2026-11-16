@@ -1,5 +1,6 @@
 import { Activity, Clock, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
 import { useMemo, useState } from "react";
+import { STATUS_META, STATUS_ORDER } from "@/lib/status";
 import { STORE_META, STORE_ORDER } from "@/lib/stores";
 import { useLibrary, type Filter } from "@/stores/library";
 import type { Store } from "@/types";
@@ -14,7 +15,9 @@ export function Sidebar() {
     const visible = games.filter((g) => !g.hidden);
     const perStore = Object.fromEntries(STORE_ORDER.map((s) => [s, 0])) as Record<Store, number>;
     for (const g of visible) for (const src of g.sources) perStore[src.store]++;
+    const perStatus = Object.fromEntries(STATUS_ORDER.map((s) => [s, visible.filter((g) => g.status === s).length]));
     return {
+      perStatus,
       all: visible.length,
       favorites: visible.filter((g) => g.favorite).length,
       recent: visible.filter((g) => g.lastPlayed).length,
@@ -61,6 +64,22 @@ export function Sidebar() {
           <kbd className="rounded border border-line px-1 text-[10px]">Ctrl K</kbd>
         </button>
       </nav>
+
+      {STATUS_ORDER.some((s) => counts.perStatus[s] > 0) && (
+        <>
+          <SectionLabel>Estado</SectionLabel>
+          <nav className="flex flex-col gap-0.5">
+            {STATUS_ORDER.filter((s) => counts.perStatus[s] > 0).map((s) =>
+              item(
+                { type: "status", status: s },
+                <span className="size-2.5 rounded-full" style={{ background: STATUS_META[s].color }} />,
+                STATUS_META[s].label,
+                counts.perStatus[s],
+              ),
+            )}
+          </nav>
+        </>
+      )}
 
       <SectionLabel>Tiendas</SectionLabel>
       <nav className="flex flex-col gap-0.5">

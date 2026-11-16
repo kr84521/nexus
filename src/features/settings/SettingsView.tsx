@@ -1,5 +1,5 @@
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { Check, ExternalLink, RotateCcw } from "lucide-react";
+import { Check, ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Row, Section, Slider, Toggle } from "@/components/ui/Field";
@@ -36,6 +36,22 @@ export function SettingsView() {
   const [steamKeyDraft, setSteamKeyDraft] = useState(steamWebApiKey);
   const [steamIdDraft, setSteamIdDraft] = useState(steamId);
   const [detectedId, setDetectedId] = useState<string | null>(null);
+  const nativeNotifications = useSettings((s) => s.nativeNotifications);
+  const setNativeNotifications = useSettings((s) => s.setNativeNotifications);
+  const load = useLibrary((s) => s.load);
+  const [syncing, setSyncing] = useState(false);
+  const syncSteam = async () => {
+    setSyncing(true);
+    try {
+      const r = await api.syncSteam();
+      await load();
+      toast.success(`Steam: ${r.owned} juegos en tu cuenta, ${r.updated} actualizados (${r.hours} h en total)`);
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
   useEffect(() => {
     api.detectedSteamId().then(setDetectedId).catch(() => {});
   }, []);
@@ -167,8 +183,8 @@ export function SettingsView() {
 
         <EmulatorsSection />
 
-        <Section title="Logros · Steam Web API">
-          <Row label="Clave de la Web API" hint="Necesaria para ver tus logros. Tu perfil debe tener «Detalles del juego» en público">
+        <Section title="Cuenta de Steam · Web API">
+          <Row label="Clave de la Web API" hint="Para logros, horas acumuladas y tu biblioteca completa. El perfil debe tener «Detalles del juego» en público">
             <Input type="password" value={steamKeyDraft} onChange={(e) => setSteamKeyDraft(e.target.value)} placeholder="Pega tu clave" className="w-64" />
             <Button variant="primary" size="sm" onClick={() => setSteamWebApiKey(steamKeyDraft)} disabled={steamKeyDraft.trim() === steamWebApiKey}>
               Guardar
@@ -183,6 +199,11 @@ export function SettingsView() {
             <Input value={steamIdDraft} onChange={(e) => setSteamIdDraft(e.target.value)} placeholder={detectedId ?? "7656119…"} className="w-56 font-mono text-xs" />
             <Button variant="outline" size="sm" onClick={() => setSteamId(steamIdDraft)} disabled={steamIdDraft.trim() === steamId}>
               Aplicar
+            </Button>
+          </Row>
+          <Row label="Sincronizar ahora" hint="Trae las horas acumuladas en Steam y tu lista de juegos. También se hace al arrancar Nexus">
+            <Button variant="outline" size="sm" onClick={syncSteam} disabled={syncing || !steamWebApiKey}>
+              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Sincronizar
             </Button>
           </Row>
         </Section>
@@ -217,6 +238,9 @@ export function SettingsView() {
         <Section title="Sistema">
           <Row label="Abrir al iniciar Windows" hint="Arranca escondido en la bandeja del sistema, junto al reloj">
             <Toggle checked={autostart ?? false} onChange={toggleAutostart} />
+          </Row>
+          <Row label="Notificaciones de Windows" hint="Avisos del sistema (tiempo jugado, copias) cuando Nexus está en la bandeja o sin foco">
+            <Toggle checked={nativeNotifications} onChange={setNativeNotifications} />
           </Row>
           <Row label="Cerrar a la bandeja" hint="Al cerrar la ventana Nexus sigue en la bandeja; sal desde su menú">
             <Toggle checked={closeToTray} onChange={setCloseToTray} />
