@@ -99,6 +99,9 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
         std::thread::sleep(POLL_STARTING);
     };
     let _ = app.emit(EVENT_GAME_RUNNING, RunningPayload { game_id: &game_id, running: true });
+    if let Ok(g) = app.state::<AppState>().db.get_game(&game_id) {
+        crate::discord::set_playing(&app, &g, crate::library::now_ms() / 1000);
+    }
 
     // Fase 2: vigilar hasta que no quede ningún proceso (dos comprobaciones seguidas, por si el juego se relanza).
     let mut misses = 0;
@@ -114,6 +117,7 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
         }
     }
 
+    crate::discord::clear(&app);
     let secs = started.elapsed().as_secs().saturating_sub(POLL_RUNNING.as_secs() * 2) as i64;
     let state = app.state::<AppState>();
     if let Err(e) = state.db.add_session(&game_id, started_ms(started), secs) {

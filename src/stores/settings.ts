@@ -26,6 +26,7 @@ interface SettingsState {
   steamWebApiKey: string;
   steamId: string;
   nativeNotifications: boolean;
+  discordAppId: string;
   loaded: boolean;
   load: () => Promise<void>;
   updateTheme: (patch: Partial<Theme>) => void;
@@ -40,6 +41,7 @@ interface SettingsState {
   setSteamWebApiKey: (k: string) => Promise<void>;
   setSteamId: (id: string) => Promise<void>;
   setNativeNotifications: (v: boolean) => Promise<void>;
+  setDiscordAppId: (id: string) => Promise<void>;
 }
 
 function normalizeQuickSearch(raw: unknown): { enabled: boolean; shortcut: string } {
@@ -68,6 +70,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   steamWebApiKey: "",
   steamId: "",
   nativeNotifications: true,
+  discordAppId: "",
   loaded: false,
 
   load: async () => {
@@ -87,6 +90,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
         steamWebApiKey: typeof s.steamWebApiKey === "string" ? s.steamWebApiKey : "",
         steamId: typeof s.steamId === "string" ? s.steamId : "",
         nativeNotifications: s.nativeNotifications !== false,
+        discordAppId: typeof s.discordAppId === "string" ? s.discordAppId : "",
         loaded: true,
       });
       const q = normalizeQuickSearch(s.quickSearch);
@@ -124,6 +128,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setSavesDir: async (savesDir) => {
     set({ savesDir });
     await api.setSetting("savesDir", savesDir).catch((e) => toast.error(errorText(e)));
+  },
+  setDiscordAppId: async (discordAppId) => {
+    set({ discordAppId: discordAppId.trim() });
+    await api.setSetting("discordAppId", discordAppId.trim()).catch((e) => toast.error(errorText(e)));
+    toast.success(discordAppId.trim() ? "Discord activado: se mostrará al lanzar un juego" : "Discord desactivado");
   },
   setNativeNotifications: async (nativeNotifications) => {
     set({ nativeNotifications });

@@ -30,12 +30,19 @@ pub async fn scan_library(app: AppHandle) -> AppResult<ScanReport> {
     })
     .await
     .map_err(|e| AppError::msg(e.to_string()))??;
+    crate::tray::refresh_recent(&app);
     artwork::spawn_fetch_missing(app);
     Ok(report)
 }
 
 #[tauri::command]
 pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: String, source_id: Option<String>) -> AppResult<Game> {
+    launch_by_id(&app, &state, &id, source_id)
+}
+
+/// Lógica de lanzamiento compartida por el comando y el menú de la bandeja.
+pub fn launch_by_id(app: &AppHandle, state: &AppState, id: &str, source_id: Option<String>) -> AppResult<Game> {
+    let id = id.to_string();
     let game = state.db.get_game(&id)?;
     let wanted = source_id.or(game.preferred_source.clone());
     let source = wanted
@@ -46,8 +53,9 @@ pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: String, sourc
     launcher::run_user_command(&opts.pre_command, source.install_path.as_deref());
     let child = launcher::launch(&source.launch, opts)?;
     state.db.record_launch(&id)?;
+    crate::tray::refresh_recent(app);
     playtime::track(
-        app,
+        app.clone(),
         id.clone(),
         source.install_path.clone(),
         child,

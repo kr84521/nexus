@@ -36,6 +36,9 @@ export function SettingsView() {
   const [steamKeyDraft, setSteamKeyDraft] = useState(steamWebApiKey);
   const [steamIdDraft, setSteamIdDraft] = useState(steamId);
   const [detectedId, setDetectedId] = useState<string | null>(null);
+  const discordAppId = useSettings((s) => s.discordAppId);
+  const setDiscordAppId = useSettings((s) => s.setDiscordAppId);
+  const [discordDraft, setDiscordDraft] = useState(discordAppId);
   const nativeNotifications = useSettings((s) => s.nativeNotifications);
   const setNativeNotifications = useSettings((s) => s.setNativeNotifications);
   const load = useLibrary((s) => s.load);
@@ -205,6 +208,20 @@ export function SettingsView() {
             <Button variant="outline" size="sm" onClick={syncSteam} disabled={syncing || !steamWebApiKey}>
               <RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Sincronizar
             </Button>
+          </Row>
+        </Section>
+
+        <Section title="Discord">
+          <Row label="Application ID" hint="Muestra «Jugando a …» en tu perfil de Discord mientras juegas. Vacío = desactivado">
+            <Input value={discordDraft} onChange={(e) => setDiscordDraft(e.target.value)} placeholder="123456789012345678" className="w-56 font-mono text-xs" />
+            <Button variant="primary" size="sm" onClick={() => setDiscordAppId(discordDraft)} disabled={discordDraft.trim() === discordAppId}>
+              Guardar
+            </Button>
+          </Row>
+          <Row label="Cómo conseguirlo" hint="Crea una aplicación llamada «Nexus» y copia su Application ID. No hace falta nada más">
+            <a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-accent hover:underline">
+              discord.com/developers <ExternalLink size={13} />
+            </a>
           </Row>
         </Section>
 

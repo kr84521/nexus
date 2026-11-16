@@ -2,6 +2,7 @@ mod artwork;
 mod backup;
 mod commands;
 mod db;
+mod discord;
 mod error;
 mod extras;
 mod launcher;
