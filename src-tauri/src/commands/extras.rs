@@ -42,3 +42,9 @@ pub async fn game_achievements(state: State<'_, AppState>, game_id: String) -> A
 pub fn detected_steam_id() -> Option<String> {
     extras::steam_user_id()
 }
+
+/// Cuentas de Steam que han iniciado sesión en este PC, la más reciente primero.
+#[tauri::command]
+pub fn steam_accounts() -> Vec<extras::SteamAccount> {
+    extras::steam_accounts()
+}

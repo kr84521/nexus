@@ -65,6 +65,14 @@ export interface Metadata {
   metacritic: number | null;
 }
 
+export interface SteamAccount {
+  steamId: string;
+  accountName: string;
+  personaName: string;
+  timestamp: number;
+  mostRecent: boolean;
+}
+
 export interface OwnedGame {
   appid: string;
   name: string;

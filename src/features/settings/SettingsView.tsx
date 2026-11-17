@@ -8,6 +8,7 @@ import { ACCENTS, PRESETS, type FontChoice, type PresetId } from "@/lib/theme";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { toast } from "@/stores/toast";
+import type { SteamAccount } from "@/types";
 import { FoldersSection } from "./FoldersSection";
 import { UpdateSection } from "./UpdateSection";
 import { BackgroundRow, BackupSection, ThemeFileRow } from "./BackupSection";
@@ -35,7 +36,8 @@ export function SettingsView() {
   const setSteamId = useSettings((s) => s.setSteamId);
   const [steamKeyDraft, setSteamKeyDraft] = useState(steamWebApiKey);
   const [steamIdDraft, setSteamIdDraft] = useState(steamId);
-  const [detectedId, setDetectedId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<SteamAccount[]>([]);
+  const [manualId, setManualId] = useState(false);
   const discordAppId = useSettings((s) => s.discordAppId);
   const setDiscordAppId = useSettings((s) => s.setDiscordAppId);
   const [discordDraft, setDiscordDraft] = useState(discordAppId);
@@ -48,7 +50,7 @@ export function SettingsView() {
     try {
       const r = await api.syncSteam();
       await load();
-      toast.success(`Steam: ${r.owned} juegos en tu cuenta, ${r.updated} actualizados (${r.hours} h en total)`);
+      toast.success(`Steam: ${r.owned} juegos en tu cuenta, ${r.updated} con horas (${r.hours} h en total)`);
     } catch (e) {
       toast.error(errorText(e));
     } finally {
@@ -56,8 +58,27 @@ export function SettingsView() {
     }
   };
   useEffect(() => {
-    api.detectedSteamId().then(setDetectedId).catch(() => {});
+    api
+      .steamAccounts()
+      .then((list) => {
+        setAccounts(list);
+        // Un SteamID escrito a mano que no es de ninguna cuenta de este PC: mostrar el campo manual.
+        if (steamId && !list.some((a) => a.steamId === steamId)) setManualId(true);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const chooseAccount = async (value: string) => {
+    if (value === "__manual") {
+      setManualId(true);
+      return;
+    }
+    setManualId(false);
+    setSteamIdDraft(value);
+    await setSteamId(value);
+    if (steamWebApiKey) await syncSteam();
+  };
+  const autoAccount = accounts[0];
 
   useEffect(() => {
     isEnabled().then(setAutostart).catch(() => setAutostart(false));
@@ -198,12 +219,38 @@ export function SettingsView() {
               steamcommunity.com/dev/apikey <ExternalLink size={13} />
             </a>
           </Row>
-          <Row label="SteamID64" hint={detectedId ? `Detectado del cliente de Steam: ${detectedId}. Déjalo vacío para usarlo` : "No se pudo detectar; escríbelo (número de 17 cifras)"}>
-            <Input value={steamIdDraft} onChange={(e) => setSteamIdDraft(e.target.value)} placeholder={detectedId ?? "7656119…"} className="w-56 font-mono text-xs" />
-            <Button variant="outline" size="sm" onClick={() => setSteamId(steamIdDraft)} disabled={steamIdDraft.trim() === steamId}>
-              Aplicar
-            </Button>
+          <Row
+            label="Cuenta"
+            hint={
+              accounts.length > 1
+                ? "En este PC han iniciado sesión varias cuentas de Steam: elige la tuya. Al cambiarla se vuelve a sincronizar"
+                : "Cuenta de Steam de la que se leen horas, biblioteca y logros"
+            }
+          >
+            <select
+              value={manualId ? "__manual" : steamId}
+              onChange={(e) => chooseAccount(e.target.value)}
+              className="focus-ring h-9 max-w-72 rounded-card border border-line bg-surface-2/70 px-2 text-sm"
+            >
+              <option value="">
+                Automática{autoAccount ? ` (${autoAccount.personaName || autoAccount.accountName})` : ""}
+              </option>
+              {accounts.map((a) => (
+                <option key={a.steamId} value={a.steamId}>
+                  {a.personaName || a.accountName} · {a.accountName}
+                </option>
+              ))}
+              <option value="__manual">Otra (escribir SteamID64)…</option>
+            </select>
           </Row>
+          {manualId && (
+            <Row label="SteamID64" hint="Número de 17 cifras de tu perfil (steamid.io lo muestra a partir de tu URL)">
+              <Input value={steamIdDraft} onChange={(e) => setSteamIdDraft(e.target.value)} placeholder="7656119…" className="w-56 font-mono text-xs" />
+              <Button variant="outline" size="sm" onClick={() => chooseAccount(steamIdDraft.trim())} disabled={steamIdDraft.trim() === steamId}>
+                Aplicar
+              </Button>
+            </Row>
+          )}
           <Row label="Sincronizar ahora" hint="Trae las horas acumuladas en Steam y tu lista de juegos. También se hace al arrancar Nexus">
             <Button variant="outline" size="sm" onClick={syncSteam} disabled={syncing || !steamWebApiKey}>
               <RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Sincronizar

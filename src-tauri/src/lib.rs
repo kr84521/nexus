@@ -149,6 +149,7 @@ pub fn run() {
             commands::extras::game_news,
             commands::extras::game_achievements,
             commands::extras::detected_steam_id,
+            commands::extras::steam_accounts,
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Nexus");

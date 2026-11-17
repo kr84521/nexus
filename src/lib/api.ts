@@ -16,6 +16,7 @@ import type {
   SaveInfo,
   ScanReport,
   Screenshot,
+  SteamAccount,
   SgdbGame,
   StatsReport,
 } from "@/types";
@@ -73,6 +74,7 @@ export const api = {
   gameNews: (gameId: string) => invoke<NewsItem[]>("game_news", { gameId }),
   gameAchievements: (gameId: string) => invoke<AchievementsReport>("game_achievements", { gameId }),
   detectedSteamId: () => invoke<string | null>("detected_steam_id"),
+  steamAccounts: () => invoke<SteamAccount[]>("steam_accounts"),
   importLibrary: (dir: string) =>
     invoke<{ games: number; collections: number; sessions: number; artworkFiles: number }>("import_library", { dir }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),

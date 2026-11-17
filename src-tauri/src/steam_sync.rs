@@ -84,12 +84,14 @@ pub async fn fetch_owned(http: &reqwest::Client, key: &str, steam_id: &str) -> A
 pub async fn sync(state: &AppState) -> AppResult<SyncReport> {
     let (key, steam_id) = credentials(state)?;
     let owned = fetch_owned(&state.http, &key, &steam_id).await?;
-    state.db.replace_steam_owned(&owned)?;
+    // Orden importante: apply_external_playtime revierte la sincronización anterior usando los datos
+    // viejos de `steam_owned`, así que va antes de reemplazarlos.
     let (updated, secs) = state.db.apply_external_playtime(
         &owned
             .iter()
             .map(|g| (g.appid.to_string(), g.playtime_forever * 60, g.rtime_last_played * 1000))
             .collect::<Vec<_>>(),
     )?;
+    state.db.replace_steam_owned(&owned)?;
     Ok(SyncReport { owned: owned.len(), updated, hours: secs / 3600 })
 }

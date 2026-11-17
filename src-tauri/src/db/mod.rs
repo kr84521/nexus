@@ -613,16 +613,35 @@ impl Db {
     pub fn apply_external_playtime(&self, items: &[(String, i64, i64)]) -> AppResult<(usize, i64)> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
+        // Primero se quitan las horas importadas antes: si cambia la cuenta (o un juego deja de estar en
+        // ella) no deben quedar horas de la sincronización anterior.
+        tx.execute(
+            "UPDATE games SET playtime_secs = playtime_secs - external_playtime_secs, external_playtime_secs = 0
+             WHERE external_playtime_secs != 0",
+            [],
+        )?;
+        // La fecha de última partida que puso la sincronización anterior (juegos nunca lanzados desde
+        // Nexus cuya fecha coincide con la de `steam_owned`) también se revierte. Por eso esta función
+        // se llama ANTES de `replace_steam_owned`, mientras `steam_owned` aún tiene los datos viejos.
+        tx.execute(
+            "UPDATE games SET last_played = NULL
+             WHERE play_count = 0 AND last_played IS NOT NULL
+               AND last_played IN (SELECT o.last_played FROM steam_owned o JOIN sources s
+                                   ON s.store = 'steam' AND s.store_id = o.appid AND s.game_id = games.id)",
+            [],
+        )?;
         let mut updated = 0;
         let mut total = 0;
         for (appid, secs, last) in items {
+            if *secs == 0 {
+                continue;
+            }
             let n = tx.execute(
                 "UPDATE games SET
-                    playtime_secs = playtime_secs - external_playtime_secs + ?2,
+                    playtime_secs = playtime_secs + ?2,
                     external_playtime_secs = ?2,
                     last_played = CASE WHEN ?3 > COALESCE(last_played, 0) THEN ?3 ELSE last_played END
-                 WHERE id = (SELECT game_id FROM sources WHERE store = 'steam' AND store_id = ?1 LIMIT 1)
-                   AND (external_playtime_secs != ?2 OR ?3 > COALESCE(last_played, 0))",
+                 WHERE id = (SELECT game_id FROM sources WHERE store = 'steam' AND store_id = ?1 LIMIT 1)",
                 params![appid, secs, last],
             )?;
             if n > 0 {
@@ -926,5 +945,55 @@ mod tests {
         assert_eq!(games.len(), 2);
         db.apply_scan(&detected, &stores).unwrap();
         assert_eq!(db.load_games().unwrap().len(), 2, "el rescaneo no debe volver a fusionar");
+    }
+}
+
+#[cfg(test)]
+mod steam_sync_tests {
+    use super::*;
+
+    #[test]
+    fn resync_with_other_account_replaces_external_hours() {
+        let p = std::env::temp_dir().join(format!("nexus-test-sync-{}.db", now_ms()));
+        let db = Db::open(&p).unwrap();
+        let mk = |id: &str, title: &str| DetectedGame {
+            store: Store::Steam,
+            store_id: id.into(),
+            title: title.into(),
+            install_path: None,
+            launch: LaunchTarget::Uri { uri: String::new() },
+        };
+        let stores: HashSet<Store> = [Store::Steam].into_iter().collect();
+        db.apply_scan(&[mk("252950", "Rocket League"), mk("250900", "Isaac")], &stores).unwrap();
+        db.add_session("g:rocketleague", 0, 600).unwrap(); // 10 min medidos por Nexus
+
+        // Cuenta equivocada: 2138 h en Rocket League.
+        db.apply_external_playtime(&[("252950".into(), 2138 * 3600, 0)]).unwrap();
+        assert_eq!(db.get_game("g:rocketleague").unwrap().playtime_secs, 2138 * 3600 + 600);
+
+        // Misma sincronización otra vez: idempotente.
+        db.apply_external_playtime(&[("252950".into(), 2138 * 3600, 0)]).unwrap();
+        assert_eq!(db.get_game("g:rocketleague").unwrap().playtime_secs, 2138 * 3600 + 600);
+
+        // La cuenta equivocada también puso fecha de última partida a Isaac (nunca lanzado desde Nexus).
+        db.apply_external_playtime(&[("250900".into(), 3600, 1_700_000_000_000)]).unwrap();
+        db.replace_steam_owned(&[crate::steam_sync::OwnedGame {
+            appid: 250900,
+            name: "Isaac".into(),
+            playtime_forever: 60,
+            rtime_last_played: 1_700_000_000,
+            img_icon_url: String::new(),
+        }])
+        .unwrap();
+        assert_eq!(db.get_game("g:isaac").unwrap().last_played, Some(1_700_000_000_000));
+
+        // Cuenta correcta: no tiene Rocket League, sí Isaac (sin fecha). Solo quedan las horas medidas
+        // por Nexus y la fecha que puso la cuenta equivocada desaparece.
+        let (updated, _) = db.apply_external_playtime(&[("250900".into(), 5 * 3600, 0)]).unwrap();
+        assert_eq!(db.get_game("g:isaac").unwrap().last_played, None);
+        assert_eq!(updated, 1);
+        let rl = db.get_game("g:rocketleague").unwrap();
+        assert_eq!((rl.playtime_secs, rl.external_playtime_secs), (600, 0));
+        assert_eq!(db.get_game("g:isaac").unwrap().playtime_secs, 5 * 3600);
     }
 }
