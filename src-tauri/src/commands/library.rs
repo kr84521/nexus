@@ -51,6 +51,12 @@ pub fn launch_by_id(app: &AppHandle, state: &AppState, id: &str, source_id: Opti
         .or_else(|| game.sources.first())
         .ok_or_else(|| AppError::msg("Este juego no tiene ninguna instalación"))?;
     let opts = &game.launch_options;
+    // Gráfica dedicada: se marca antes de lanzar porque Windows la elige al arrancar el proceso.
+    let global_gpu = state.db.get_setting("preferDedicatedGpu")?.and_then(|v| v.as_bool()).unwrap_or(true);
+    let gpu_plan = crate::gpu::plan(opts.gpu.trim(), global_gpu);
+    if let (Some(plan), Some(dir)) = (gpu_plan, source.install_path.as_deref()) {
+        crate::gpu::apply_to_dir(dir, plan);
+    }
     launcher::run_user_command(&opts.pre_command, source.install_path.as_deref());
     let child = launcher::launch(&source.launch, opts)?;
     state.db.record_launch(&id)?;
@@ -64,6 +70,7 @@ pub fn launch_by_id(app: &AppHandle, state: &AppState, id: &str, source_id: Opti
             post_command: opts.post_command.clone(),
             close_store: opts.close_store_on_exit.then_some(source.store),
             cwd: source.install_path.clone(),
+            gpu: gpu_plan,
         },
     );
     state.db.get_game(&id)

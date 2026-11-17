@@ -213,14 +213,14 @@ pub fn import(state: &AppState, dir: &str) -> AppResult<ImportReport> {
         )?;
         tx.execute("UPDATE games SET last_played = NULL WHERE id = ?1 AND last_played = 0", [&g.id])?;
         tx.execute(
-            "INSERT INTO launch_options (game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO launch_options (game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin, gpu)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(game_id) DO UPDATE SET args = excluded.args, pre_command = excluded.pre_command,
                 post_command = excluded.post_command, close_store_on_exit = excluded.close_store_on_exit,
-                run_as_admin = excluded.run_as_admin",
+                run_as_admin = excluded.run_as_admin, gpu = excluded.gpu",
             params![
                 g.id, g.launch_options.args, g.launch_options.pre_command, g.launch_options.post_command,
-                g.launch_options.close_store_on_exit as i64, g.launch_options.run_as_admin as i64
+                g.launch_options.close_store_on_exit as i64, g.launch_options.run_as_admin as i64, g.launch_options.gpu
             ],
         )?;
         for c in &g.collections {

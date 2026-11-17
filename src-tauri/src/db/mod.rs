@@ -16,7 +16,7 @@ pub struct Db {
 }
 
 /// Versión actual del esquema (PRAGMA user_version). Súbela al añadir una migración.
-const SCHEMA_VERSION: i64 = 5;
+const SCHEMA_VERSION: i64 = 6;
 
 /// Migraciones para bases de datos ya existentes. `schema.sql` solo crea lo que falta (IF NOT EXISTS),
 /// así que los cambios en tablas existentes (ALTER TABLE) van aquí, una entrada por versión.
@@ -50,6 +50,10 @@ fn migrate(conn: &Connection) -> AppResult<()> {
     if v < 5 {
         add_column(conn, "sources", "size_bytes", "INTEGER")?;
         v = 5;
+    }
+    if v < 6 {
+        add_column(conn, "launch_options", "gpu", "TEXT NOT NULL DEFAULT ''")?;
+        v = 6;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -186,7 +190,7 @@ impl Db {
         let mut opts: HashMap<String, LaunchOptions> = HashMap::new();
         {
             let mut st = conn.prepare(
-                "SELECT game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin FROM launch_options",
+                "SELECT game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin, gpu FROM launch_options",
             )?;
             let rows = st.query_map([], |r| {
                 Ok((
@@ -197,6 +201,7 @@ impl Db {
                         post_command: r.get(3)?,
                         close_store_on_exit: r.get::<_, i64>(4)? != 0,
                         run_as_admin: r.get::<_, i64>(5)? != 0,
+                        gpu: r.get(6)?,
                     },
                 ))
             })?;
@@ -655,18 +660,19 @@ impl Db {
 
     pub fn set_launch_options(&self, id: &str, o: &LaunchOptions) -> AppResult<()> {
         self.conn().execute(
-            "INSERT INTO launch_options (game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO launch_options (game_id, args, pre_command, post_command, close_store_on_exit, run_as_admin, gpu)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(game_id) DO UPDATE SET args = excluded.args, pre_command = excluded.pre_command,
                 post_command = excluded.post_command, close_store_on_exit = excluded.close_store_on_exit,
-                run_as_admin = excluded.run_as_admin",
+                run_as_admin = excluded.run_as_admin, gpu = excluded.gpu",
             params![
                 id,
                 o.args.trim(),
                 o.pre_command.trim(),
                 o.post_command.trim(),
                 o.close_store_on_exit as i64,
-                o.run_as_admin as i64
+                o.run_as_admin as i64,
+                o.gpu.trim()
             ],
         )?;
         Ok(())

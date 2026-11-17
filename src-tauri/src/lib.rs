@@ -5,6 +5,7 @@ mod db;
 mod discord;
 mod error;
 mod extras;
+mod gpu;
 mod launcher;
 mod library;
 mod metadata;

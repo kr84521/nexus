@@ -26,6 +26,8 @@ interface SettingsState {
   steamWebApiKey: string;
   steamId: string;
   nativeNotifications: boolean;
+  /** Marcar los juegos como "alto rendimiento" en Windows al lanzarlos (portátiles con dos gráficas). */
+  preferDedicatedGpu: boolean;
   discordAppId: string;
   /** El asistente de primer arranque está abierto (se abre solo si `onboardingDone` no está guardado). */
   onboardingOpen: boolean;
@@ -45,6 +47,7 @@ interface SettingsState {
   setSteamWebApiKey: (k: string) => Promise<void>;
   setSteamId: (id: string) => Promise<void>;
   setNativeNotifications: (v: boolean) => Promise<void>;
+  setPreferDedicatedGpu: (v: boolean) => Promise<void>;
   setDiscordAppId: (id: string) => Promise<void>;
 }
 
@@ -74,6 +77,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   steamWebApiKey: "",
   steamId: "",
   nativeNotifications: true,
+  preferDedicatedGpu: true,
   discordAppId: "",
   onboardingOpen: false,
   loaded: false,
@@ -96,6 +100,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
         steamWebApiKey: typeof s.steamWebApiKey === "string" ? s.steamWebApiKey : "",
         steamId: typeof s.steamId === "string" ? s.steamId : "",
         nativeNotifications: s.nativeNotifications !== false,
+        preferDedicatedGpu: s.preferDedicatedGpu !== false,
         discordAppId: typeof s.discordAppId === "string" ? s.discordAppId : "",
         onboardingOpen: !onboardingDone,
         loaded: true,
@@ -152,6 +157,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setNativeNotifications: async (nativeNotifications) => {
     set({ nativeNotifications });
     await api.setSetting("nativeNotifications", nativeNotifications).catch((e) => toast.error(errorText(e)));
+  },
+  setPreferDedicatedGpu: async (preferDedicatedGpu) => {
+    set({ preferDedicatedGpu });
+    await api.setSetting("preferDedicatedGpu", preferDedicatedGpu).catch((e) => toast.error(errorText(e)));
   },
   setSteamWebApiKey: async (steamWebApiKey) => {
     set({ steamWebApiKey: steamWebApiKey.trim() });

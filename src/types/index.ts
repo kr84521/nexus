@@ -86,6 +86,8 @@ export interface LaunchOptions {
   postCommand: string;
   closeStoreOnExit: boolean;
   runAsAdmin: boolean;
+  /** "" = según el ajuste global, "high" = dedicada, "low" = integrada, "off" = no tocar la preferencia de Windows. */
+  gpu: "" | "high" | "low" | "off";
 }
 
 export interface StatsReport {

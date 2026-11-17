@@ -5,12 +5,14 @@ import { Modal } from "@/components/ui/Modal";
 import { api, errorText } from "@/lib/api";
 import { displayTitle } from "@/lib/art";
 import { useLibrary } from "@/stores/library";
+import { useSettings } from "@/stores/settings";
 import { toast } from "@/stores/toast";
 import type { Game, LaunchOptions } from "@/types";
 
 export function LaunchOptionsModal({ game, onClose }: { game: Game; onClose: () => void }) {
   const upsert = useLibrary((s) => s.upsert);
-  const [o, setO] = useState<LaunchOptions>({ ...game.launchOptions });
+  const [o, setO] = useState<LaunchOptions>({ ...game.launchOptions, gpu: game.launchOptions.gpu ?? "" });
+  const globalGpu = useSettings((s) => s.preferDedicatedGpu);
   const [saving, setSaving] = useState(false);
 
   const hasExe = game.sources.some((s) => s.launch.kind === "exe");
@@ -59,6 +61,18 @@ export function LaunchOptionsModal({ game, onClose }: { game: Game; onClose: () 
         {field("Antes de jugar", "Comando de consola (cmd). Ej.: abrir Discord, cambiar perfil de audio.", "preCommand", 'start "" "C:\\Users\\tu\\AppData\\Local\\Discord\\Update.exe" --processStart Discord.exe')}
         {field("Al salir del juego", "Se ejecuta cuando termina la sesión.", "postCommand", "nircmd setdefaultsounddevice Altavoces")}
         <div className="divide-y divide-line/70 rounded-card border border-line px-4">
+          <Row label="Tarjeta gráfica" hint="Para portátiles con gráfica integrada y dedicada. Se aplica en las preferencias de gráficos de Windows">
+            <select
+              value={o.gpu}
+              onChange={(e) => setO({ ...o, gpu: e.target.value as LaunchOptions["gpu"] })}
+              className="focus-ring h-9 rounded-card border border-line bg-surface-2/70 px-2 text-sm"
+            >
+              <option value="">Según Ajustes ({globalGpu ? "dedicada" : "sin cambios"})</option>
+              <option value="high">Dedicada (alto rendimiento)</option>
+              <option value="low">Integrada (ahorro de energía)</option>
+              <option value="off">No cambiar</option>
+            </select>
+          </Row>
           <Row label="Cerrar la tienda al salir" hint="Cierra Steam/Epic/GOG… cuando termina el juego">
             <Toggle checked={o.closeStoreOnExit} onChange={(v) => setO({ ...o, closeStoreOnExit: v })} />
           </Row>

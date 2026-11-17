@@ -42,6 +42,8 @@ export function SettingsView() {
   const setDiscordAppId = useSettings((s) => s.setDiscordAppId);
   const [discordDraft, setDiscordDraft] = useState(discordAppId);
   const nativeNotifications = useSettings((s) => s.nativeNotifications);
+  const preferDedicatedGpu = useSettings((s) => s.preferDedicatedGpu);
+  const setPreferDedicatedGpu = useSettings((s) => s.setPreferDedicatedGpu);
   const setNativeNotifications = useSettings((s) => s.setNativeNotifications);
   const load = useLibrary((s) => s.load);
   const [syncing, setSyncing] = useState(false);
@@ -308,6 +310,12 @@ export function SettingsView() {
           </Row>
           <Row label="Notificaciones de Windows" hint="Avisos del sistema (tiempo jugado, copias) cuando Nexus está en la bandeja o sin foco">
             <Toggle checked={nativeNotifications} onChange={setNativeNotifications} />
+          </Row>
+          <Row
+            label="Usar la gráfica dedicada"
+            hint="En portátiles con dos gráficas, marca cada juego como «alto rendimiento» en Windows al lanzarlo. No cambia los que ya hayas configurado tú; se puede ajustar por juego en Opciones de lanzamiento"
+          >
+            <Toggle checked={preferDedicatedGpu} onChange={setPreferDedicatedGpu} />
           </Row>
           <Row label="Cerrar a la bandeja" hint="Al cerrar la ventana Nexus sigue en la bandeja; sal desde su menú">
             <Toggle checked={closeToTray} onChange={setCloseToTray} />

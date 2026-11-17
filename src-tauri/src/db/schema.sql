@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS launch_options (
     pre_command         TEXT NOT NULL DEFAULT '',
     post_command        TEXT NOT NULL DEFAULT '',
     close_store_on_exit INTEGER NOT NULL DEFAULT 0,
-    run_as_admin        INTEGER NOT NULL DEFAULT 0
+    run_as_admin        INTEGER NOT NULL DEFAULT 0,
+    gpu                 TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

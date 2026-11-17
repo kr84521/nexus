@@ -186,6 +186,9 @@ pub struct LaunchOptions {
     pub close_store_on_exit: bool,
     #[serde(default)]
     pub run_as_admin: bool,
+    /// Gráfica: `""` = según el ajuste global, `high` = dedicada, `low` = integrada, `off` = no tocar.
+    #[serde(default)]
+    pub gpu: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -23,6 +23,9 @@ pub struct ExitActions {
     pub post_command: String,
     pub close_store: Option<Store>,
     pub cwd: Option<String>,
+    /// Preferencia de GPU a aplicar también a los ejecutables que se vean en marcha (por si están
+    /// fuera de lo que se recorrió al lanzar); surte efecto desde la siguiente partida.
+    pub gpu: Option<crate::gpu::Plan>,
 }
 
 #[derive(Serialize, Clone)]
@@ -49,7 +52,7 @@ fn norm(p: &Path) -> String {
 }
 
 /// Carpetas demasiado genéricas como para identificar un juego por ellas.
-fn is_usable_root(install: &str) -> bool {
+pub(crate) fn is_usable_root(install: &str) -> bool {
     let n = install.trim_end_matches('\\');
     n.len() > 3 && !n.to_lowercase().ends_with("program files") && !n.to_lowercase().ends_with("program files (x86)")
 }
@@ -90,7 +93,12 @@ fn watch(app: AppHandle, game_id: String, root: Option<String>, child: Option<u3
 
     // Fase 1: esperar a que arranque.
     let started = loop {
-        if !matching_pids(&mut sys, root.as_deref(), child).is_empty() {
+        let pids = matching_pids(&mut sys, root.as_deref(), child);
+        if !pids.is_empty() {
+            if let Some(plan) = on_exit.gpu {
+                let exes: Vec<_> = pids.iter().filter_map(|p| sys.process(*p)?.exe().map(|e| e.to_path_buf())).collect();
+                crate::gpu::apply_to_exes(&exes, plan);
+            }
             break Instant::now();
         }
         if Instant::now() > deadline {
