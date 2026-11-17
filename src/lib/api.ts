@@ -75,6 +75,7 @@ export const api = {
   gameAchievements: (gameId: string) => invoke<AchievementsReport>("game_achievements", { gameId }),
   detectedSteamId: () => invoke<string | null>("detected_steam_id"),
   steamAccounts: () => invoke<SteamAccount[]>("steam_accounts"),
+  notifyWhenHidden: (title: string, body: string) => invoke<void>("notify_when_hidden", { title, body }),
   importLibrary: (dir: string) =>
     invoke<{ games: number; collections: number; sessions: number; artworkFiles: number }>("import_library", { dir }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),

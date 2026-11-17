@@ -17,10 +17,10 @@ import { LibraryView } from "@/features/library/LibraryView";
 import { GameDetail } from "@/features/game-detail/GameDetail";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { useGamepad } from "@/lib/gamepad";
-import { checkForUpdate } from "@/lib/updater";
 import { toast } from "@/stores/toast";
 import { cycleFilter, useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
+import { UPDATE_INTERVAL_MS, useUpdate } from "@/stores/update";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 
@@ -52,12 +52,17 @@ export function App() {
       await loadSettings();
       await load();
       if (useLibrary.getState().games.length === 0) scan(true);
-      if (!import.meta.env.DEV) {
-        const u = await checkForUpdate();
-        if (u.status === "available") toast.info(`Nexus ${u.update.version} disponible: instálala desde Ajustes`);
-      }
     })();
   }, [loadSettings, load, scan]);
+
+  // Actualizaciones: al arrancar y cada 6 h mientras Nexus siga abierto (p. ej. en la bandeja).
+  useEffect(() => {
+    if (import.meta.env.DEV) return;
+    const check = () => useUpdate.getState().check(true);
+    check();
+    const timer = setInterval(check, UPDATE_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   // Eventos del backend: arte en segundo plano, juegos en ejecución, bandeja.
   useEffect(() => {

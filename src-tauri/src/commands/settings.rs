@@ -19,3 +19,9 @@ pub fn set_setting(app: AppHandle, state: State<'_, AppState>, key: String, valu
     }
     Ok(())
 }
+
+/// Notificación nativa solo si la ventana no está a la vista (p. ej. aviso de actualización desde la bandeja).
+#[tauri::command]
+pub fn notify_when_hidden(app: AppHandle, title: String, body: String) {
+    crate::notify::when_hidden(&app, &title, &body);
+}

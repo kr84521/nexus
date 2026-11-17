@@ -136,6 +136,7 @@ pub fn run() {
             commands::artwork::refetch_missing_metadata,
             commands::settings::get_settings,
             commands::settings::set_setting,
+            commands::settings::notify_when_hidden,
             commands::files::set_background_image,
             commands::files::write_text_file,
             commands::files::read_text_file,

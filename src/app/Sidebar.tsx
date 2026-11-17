@@ -1,13 +1,15 @@
-import { Activity, Clock, CloudDownload, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
+import { Activity, ArrowUpCircle, Clock, CloudDownload, EyeOff, FolderPlus, LayoutGrid, Plus, RefreshCw, Search, Settings, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { STATUS_META, STATUS_ORDER } from "@/lib/status";
 import { STORE_META, STORE_ORDER } from "@/lib/stores";
 import { useLibrary, type Filter } from "@/stores/library";
+import { useUpdate } from "@/stores/update";
 import type { Store } from "@/types";
 import { AddGameModal } from "@/features/library/AddGameModal";
 
 export function Sidebar() {
   const { games, collections, filter, page, scanning, setFilter, setPage, scan, createCollection, setPaletteOpen } = useLibrary();
+  const updateReady = useUpdate((s) => s.state.status === "available");
   const [addOpen, setAddOpen] = useState(false);
   const [newColl, setNewColl] = useState<string | null>(null);
 
@@ -158,6 +160,14 @@ export function Sidebar() {
             ${page === "settings" ? "bg-accent/16 font-medium text-fg" : "text-muted hover:bg-fg/6 hover:text-fg"}`}
         >
           <Settings size={16} /> Ajustes
+          {updateReady && (
+            <span
+              title="Hay una actualización de Nexus disponible"
+              className="ml-auto flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-[10px] font-medium text-accent-fg"
+            >
+              <ArrowUpCircle size={11} /> Nueva versión
+            </span>
+          )}
         </button>
       </nav>
 
