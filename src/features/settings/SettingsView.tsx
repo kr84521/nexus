@@ -1,5 +1,5 @@
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { Check, ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
+import { Check, ExternalLink, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Row, Section, Slider, Toggle } from "@/components/ui/Field";
@@ -101,6 +101,9 @@ export function SettingsView() {
       <header className="flex items-center gap-4 pt-2 pb-5">
         <h1 className="text-2xl font-semibold tracking-tight">Ajustes</h1>
         <div className="flex-1" />
+        <Button size="sm" onClick={() => useSettings.getState().openOnboarding()}>
+          <Sparkles size={14} /> Asistente de configuración
+        </Button>
         <Button size="sm" onClick={resetTheme}>
           <RotateCcw size={14} /> Restablecer tema
         </Button>

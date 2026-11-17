@@ -15,6 +15,7 @@ import { displayTitle, formatPlaytime } from "@/lib/art";
 import { ArtworkBackdrop } from "@/features/library/ArtworkBackdrop";
 import { LibraryView } from "@/features/library/LibraryView";
 import { GameDetail } from "@/features/game-detail/GameDetail";
+import { Onboarding } from "@/features/onboarding/Onboarding";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { useGamepad } from "@/lib/gamepad";
 import { toast } from "@/stores/toast";
@@ -180,6 +181,7 @@ export function App() {
       {artGame && <ArtworkPicker game={artGame} open onClose={() => openArt(null)} />}
       {launchOptionsGame && <LaunchOptionsModal game={launchOptionsGame} onClose={() => openLaunchOptions(null)} />}
       <CommandPalette />
+      <Onboarding />
       {gamepad && <GamepadHints />}
       <Toasts />
     </div>

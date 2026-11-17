@@ -27,6 +27,10 @@ interface SettingsState {
   steamId: string;
   nativeNotifications: boolean;
   discordAppId: string;
+  /** El asistente de primer arranque está abierto (se abre solo si `onboardingDone` no está guardado). */
+  onboardingOpen: boolean;
+  openOnboarding: () => void;
+  finishOnboarding: () => void;
   loaded: boolean;
   load: () => Promise<void>;
   updateTheme: (patch: Partial<Theme>) => void;
@@ -71,12 +75,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
   steamId: "",
   nativeNotifications: true,
   discordAppId: "",
+  onboardingOpen: false,
   loaded: false,
 
   load: async () => {
     try {
       const s = await api.getSettings();
       const theme = normalizeTheme(s.theme);
+      const onboardingDone = s.onboardingDone === true || (typeof s.sgdbApiKey === "string" && s.sgdbApiKey.trim() !== "");
       applyTheme(theme);
       set({
         theme,
@@ -91,8 +97,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
         steamId: typeof s.steamId === "string" ? s.steamId : "",
         nativeNotifications: s.nativeNotifications !== false,
         discordAppId: typeof s.discordAppId === "string" ? s.discordAppId : "",
+        onboardingOpen: !onboardingDone,
         loaded: true,
       });
+      // Instalaciones anteriores al asistente que ya estaban configuradas: no mostrarlo.
+      if (onboardingDone && s.onboardingDone !== true) api.setSetting("onboardingDone", true).catch(() => {});
       const q = normalizeQuickSearch(s.quickSearch);
       const err = await applyHotkey(q.enabled, q.shortcut);
       if (err) toast.error(`Atajo global no disponible: ${err}`);
@@ -114,6 +123,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
     applyTheme(DEFAULT_THEME);
     set({ theme: DEFAULT_THEME });
     persistTheme(DEFAULT_THEME);
+  },
+
+  openOnboarding: () => set({ onboardingOpen: true }),
+  finishOnboarding: () => {
+    set({ onboardingOpen: false });
+    api.setSetting("onboardingDone", true).catch((e) => toast.error(errorText(e)));
   },
 
   setCloseToTray: (v) => {
