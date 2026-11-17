@@ -28,7 +28,7 @@ Datos en tiempo de ejecución: `%APPDATA%\dev.nexus.launcher\` → `library.db` 
 
 No lanzar `tauri dev` si el usuario ya tiene uno abierto (puerto 1420 ocupado): su instancia recompila sola al guardar. Comprobar con `netstat -ano | grep 1420`.
 
-Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierde no se pueden firmar más actualizaciones). Firmar al compilar: `TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/nexus.key) npm run app:build`. El endpoint (`plugins.updater.endpoints` en `tauri.conf.json`) debe apuntar al `latest.json` de las GitHub Releases.
+Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierde no se pueden firmar más actualizaciones). Firmar al compilar: `TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/nexus.key) npm run app:build`. El endpoint (`plugins.updater.endpoints` en `tauri.conf.json`) debe apuntar al `latest.json` de las GitHub Releases. Publicar: subir la versión en `package.json`, `Cargo.toml` y `tauri.conf.json`, escribir `release-notes/vX.Y.Z.md` (el workflow lo usa como cuerpo de la Release y `notes` de `latest.json`; Ajustes lo muestra antes de instalar) y subir la etiqueta `vX.Y.Z`. En el frontend, `stores/update.ts` comprueba al arrancar y cada 6 h, avisa una vez por versión (aviso interno + notificación nativa si la ventana está oculta) y la barra lateral muestra «Nueva versión» hasta instalar.
 
 ## Arquitectura
 

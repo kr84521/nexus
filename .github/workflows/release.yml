@@ -3,6 +3,8 @@
 #   1. Sube "version" en src-tauri/tauri.conf.json, src-tauri/Cargo.toml y package.json
 #   2. git commit, git tag v0.3.0, git push --tags
 # Requiere el secret TAURI_SIGNING_PRIVATE_KEY (contenido de ~/.tauri/nexus.key).
+# Las notas de la versión salen de release-notes/vX.Y.Z.md: van al cuerpo de la Release y a latest.json,
+# y Nexus las muestra en Ajustes → Actualizaciones antes de instalar.
 name: Release
 
 on:
@@ -31,6 +33,18 @@ jobs:
 
       - run: npm ci
 
+      - name: Notas de la versión
+        id: notes
+        shell: bash
+        run: |
+          f="release-notes/${GITHUB_REF_NAME}.md"
+          {
+            echo "body<<NOTES_EOF"
+            if [ -f "$f" ]; then cat "$f"; else echo "Instalador para Windows. Las instalaciones existentes se actualizan desde Ajustes → Actualizaciones."; fi
+            echo
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +53,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Nexus ${{ github.ref_name }}"
-          releaseBody: "Instalador para Windows. Las instalaciones existentes se actualizan solas desde Ajustes → Actualizaciones."
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false

@@ -45,6 +45,38 @@ export function UpdateSection() {
           </Button>
         )}
       </Row>
+      {state.status === "available" && state.update.body?.trim() && <ReleaseNotes text={state.update.body} />}
     </Section>
+  );
+}
+
+/** Notas de la versión (cuerpo de la GitHub Release, llega en latest.json). Markdown mínimo: `## título` y `- punto`. */
+function ReleaseNotes({ text }: { text: string }) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return (
+    <div className="py-3">
+      <div className="mb-1.5 text-xs font-medium text-muted">Novedades</div>
+      <div className="max-h-64 space-y-1 overflow-y-auto pr-2 text-[13px] leading-relaxed">
+        {lines.map((l, i) =>
+          l.startsWith("#") ? (
+            <div key={i} className="pt-2 text-xs font-semibold text-fg first:pt-0">
+              {l.replace(/^#+\s*/, "")}
+            </div>
+          ) : l.startsWith("- ") || l.startsWith("* ") ? (
+            <div key={i} className="flex gap-2 text-fg/90">
+              <span className="text-accent">•</span>
+              <span>{l.slice(2).replace(/\*\*/g, "")}</span>
+            </div>
+          ) : (
+            <p key={i} className="text-muted">
+              {l.replace(/\*\*/g, "")}
+            </p>
+          ),
+        )}
+      </div>
+    </div>
   );
 }
