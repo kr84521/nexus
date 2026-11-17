@@ -59,10 +59,7 @@ pub fn launch(target: &LaunchTarget, opts: &LaunchOptions) -> AppResult<Option<u
                 Some(id) if !extra.is_empty() => format!("steam://run/{id}//{}/", opts.args.trim()),
                 _ => uri.clone(),
             };
-            Command::new("explorer.exe")
-                .arg(&uri)
-                .spawn()
-                .map_err(|e| AppError::msg(format!("No se pudo abrir {uri}: {e}")))?;
+            open_uri(&uri)?;
             Ok(None)
         }
         LaunchTarget::Exe { path, args, cwd } => {
@@ -130,7 +127,58 @@ pub fn shutdown_store(store: Store) {
     }
 }
 
+/// Abre una URI con su manejador registrado (steam://, com.epicgames.launcher://, shell:AppsFolder\…).
+/// Antes se usaba `explorer.exe <uri>`, pero explorer no entiende URIs con `?` (las de Epic llevan
+/// `?action=launch`) y abría una ventana del explorador en su lugar. ShellExecuteW es lo que hace
+/// Windows al pulsar un enlace, así que funciona con cualquier protocolo.
+#[cfg(windows)]
+pub fn open_uri(uri: &str) -> AppResult<()> {
+    use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+    let (file, verb) = (wide(uri), wide("open"));
+    // ShellExecute necesita COM inicializado en el hilo; se hace en uno propio para no
+    // depender del estado del hilo del comando de Tauri.
+    let code = std::thread::spawn(move || unsafe {
+        let com = CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32);
+        let r = ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        ) as isize;
+        if com >= 0 {
+            CoUninitialize();
+        }
+        r
+    })
+    .join()
+    .map_err(|_| AppError::msg("No se pudo abrir la URI"))?;
+    // ShellExecuteW devuelve un valor > 32 si ha ido bien; si no, un código de error.
+    if code <= 32 {
+        return Err(AppError::msg(match code {
+            31 => format!("No hay ninguna aplicación registrada para abrir {uri}; ¿está instalada la tienda?"),
+            _ => format!("No se pudo abrir {uri} (código {code})"),
+        }));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn open_uri(uri: &str) -> AppResult<()> {
+    Command::new("xdg-open").arg(uri).spawn()?;
+    Ok(())
+}
+
+/// Abre una carpeta en el explorador; si es una URI (p. ej. steam://install/…), con su manejador.
 pub fn open_folder(path: &str) -> AppResult<()> {
+    if path.contains("://") {
+        return open_uri(path);
+    }
     Command::new("explorer.exe").arg(path).spawn()?;
     Ok(())
 }

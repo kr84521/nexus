@@ -44,7 +44,7 @@ Actualizador: clave privada en `~/.tauri/nexus.key` (fuera del repo; si se pierd
 
 - **`games`**: un juego lógico. `id = "g:<título normalizado>"` (o `"m:<ts>"` para manuales). Guarda favorito, oculto, título personalizado, arte elegido, `sgdb_id`, `art_fetched`.
 - **`sources`**: una instalación concreta en una tienda. `id = "<store>:<store_id>"`. Un juego puede tener varias (Steam + Epic). Cada fuente guarda su `LaunchTarget` como JSON.
-- `LaunchTarget` es `Uri` (steam://, uplay://, shell:AppsFolder\...) o `Exe` (ruta + args + cwd). `launcher.rs` abre URIs con `explorer.exe` y ejecutables con `Command`.
+- `LaunchTarget` es `Uri` (steam://, uplay://, shell:AppsFolder\...) o `Exe` (ruta + args + cwd). `launcher.rs` abre URIs con `ShellExecuteW` (`open_uri`) y ejecutables con `Command`. No usar `explorer.exe <uri>`: falla con URIs que llevan `?` (las de Epic) y abre una ventana del explorador.
 - **`metadata`** (1:1 con games, incluye `metacritic`), **`launch_options`** (1:1), **`sessions`** (tiempo de juego; `stats.rs` las agrega para la página Actividad) y **`steam_owned`** (biblioteca completa de la cuenta de Steam, de la Web API).
 - `games.status` (`none|backlog|playing|completed|dropped`), `rating` (0-5) y `notes` son el backlog del usuario. `playtime_secs` es el total mostrado; `external_playtime_secs` es la parte importada de Steam (`steam_sync::sync` hace `playtime_secs = playtime_secs - external + nuevo_external`, por eso es idempotente).
 - `sources.size_bytes` se calcula en un hilo tras cada escaneo (`library::spawn_compute_sizes`) y al arrancar. `games.art_color` es el color dominante de la portada (calculado con `artwork::color` al guardarla; `""` = no se pudo calcular).
